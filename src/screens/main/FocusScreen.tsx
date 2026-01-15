@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useLayoutEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { useTheme } from "../../ui/theme/ThemeProvider";
 
@@ -28,6 +28,7 @@ import {
   FocusStats,
   Flower,
 } from "../../features/focus/focusStore";
+import { loadFocusState, saveFocusState, pickRandomFlowerId } from "../../focus/focusStore";
 
 const DURATIONS = [15, 25, 45, 60];
 
@@ -35,76 +36,78 @@ export const FocusScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
 
-  const [durationMin, setDurationMin] = useState<number>(25);
-  const [session, setSession] = useState<FocusSessionState | null>(null);
-  const [remainingSec, setRemainingSec] = useState<number>(0);
-  const [stats, setStats] = useState<FocusStats | null>(null);
-  const [flowers, setFlowers] = useState<Flower[]>([]);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={() => navigation.navigate(Routes.FocusSettings as any)} style={{ paddingRight: 12 }}>
+          <Text style={{ fontSize: 20 }}>⚙️</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
+  const [selectedMinutes, setSelectedMinutes] = useState<number>(25);
+  const [running, setRunning] = useState<boolean>(false);
+  const [remainingSec, setRemainingSec] = useState<number>(selectedMinutes * 60);
+
+  const [localTotalSeconds, setLocalTotalSeconds] = useState<number>(0);
+  const [localStreak, setLocalStreak] = useState<number>(0);
+  const [localFlowers, setLocalFlowers] = useState<string[]>([]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // load initial data
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const s = await loadFocusState();
+          if (!mounted) return;
+          setLocalTotalSeconds(s.totalSeconds || 0);
+          setLocalStreak(s.streak || 0);
+          setLocalFlowers(Array.isArray(s.flowers) ? s.flowers : []);
+        } catch {
+          // ignore
+        }
+      })();
+      return () => {
+        mounted = false;
+      };
+    }, [])
+  );
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const s = await loadFocusSession();
-      if (!mounted) return;
-      setSession(s);
-      if (s.isRunning && s.endsAt) {
-        const rem = Math.max(0, Math.ceil((s.endsAt - Date.now()) / 1000));
-        setRemainingSec(rem);
-        startInterval();
-      } else {
-        setRemainingSec(s.durationMinutes * 60);
+    setRemainingSec(selectedMinutes * 60);
+  }, [selectedMinutes]);
+
+  useEffect(() => {
+    if (!running) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-
-      const st = await loadFocusStats();
-      if (!mounted) return;
-      setStats(st);
-
-      const fl = await loadFlowers();
-      if (!mounted) return;
-      setFlowers(fl);
-    })();
-
-    return () => {
-      mounted = false;
-      stopInterval();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // interval helpers
-  const startInterval = () => {
-    stopInterval();
+      return;
+    }
     intervalRef.current = setInterval(() => {
       setRemainingSec((r) => {
         if (r <= 1) {
-          // finish
-          stopInterval();
-          handleComplete();
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          finishSession();
           return 0;
         }
         return r - 1;
       });
     }, 1000);
-  };
-
-  const stopInterval = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
-    }
-  };
+    };
+  }, [running]);
 
   const formatMMSS = (sec: number) => {
-    const m = Math.floor(sec / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = Math.floor(sec % 60)
-      .toString()
-      .padStart(2, "0");
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = Math.floor(sec % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
 
@@ -115,66 +118,78 @@ export const FocusScreen: React.FC = () => {
     return "Çiçek";
   };
 
-  const handleStart = async () => {
+  const startSession = async () => {
+    setRunning(true);
     const now = Date.now();
-    const endsAt = now + durationMin * 60 * 1000;
-    const s: FocusSessionState = { isRunning: true, startedAt: now, endsAt, durationMinutes: durationMin };
+    const endsAt = now + selectedMinutes * 60 * 1000;
+    const s: FocusSessionState = { isRunning: true, startedAt: now, endsAt, durationMinutes: selectedMinutes };
     await saveFocusSession(s);
-    setSession(s);
-    setRemainingSec(durationMin * 60);
-    startInterval();
   };
 
-  const handleStop = async () => {
-    stopInterval();
-    await clearFocusSession();
-    setSession({ isRunning: false, durationMinutes: durationMin });
-    setRemainingSec(durationMin * 60);
-  };
+  const finishSession = async () => {
+    setRunning(false);
+    const addedSec = selectedMinutes * 60;
+    const newTotal = (localTotalSeconds || 0) + addedSec;
+    const newStreak = (localStreak || 0) + 1;
+    const flowerId = pickRandomFlowerId();
+    const newFlowers = [flowerId, ...localFlowers];
 
-  const handleComplete = async () => {
-    // called when remainingSec reaches 0
-    const minutes = session?.durationMinutes ?? durationMin;
+    setLocalTotalSeconds(newTotal);
+    setLocalStreak(newStreak);
+    setLocalFlowers(newFlowers);
+
     try {
-      await addCompletedFocusSession(minutes);
+      await saveFocusState({ totalSeconds: newTotal, streak: newStreak, flowers: newFlowers });
+    } catch {
+      // ignore
+    }
+
+    try {
+      await addCompletedFocusSession(selectedMinutes);
       await addFlower({ type: "default", earnedAt: Date.now() });
     } catch {
       // ignore
-    } finally {
-      await clearFocusSession();
-      setSession({ isRunning: false, durationMinutes });
-      // refresh stats and flowers
-      try {
-        const st = await loadFocusStats();
-        const fl = await loadFlowers();
-        setStats(st);
-        setFlowers(fl);
-      } catch {
-        // ignore
-      }
-      setSuccessMsg("Çiçek kazandın! 🌸");
-      setTimeout(() => setSuccessMsg(null), 3000);
+    }
+
+    Alert.alert("Tebrikler 🎉", "Oturumu tamamladın! Yeni bir çiçek kazandın.");
+  };
+
+  const debugFinish = () => {
+    if (running) {
+      setRemainingSec(0);
+    } else {
+      Alert.alert("Oturum çalışmıyor", "Önce oturumu başlatın.");
     }
   };
 
   const onSelectDuration = (m: number) => {
-    if (session?.isRunning) return; // don't change while running
-    setDurationMin(m);
+    if (running) return;
+    setSelectedMinutes(m);
     setRemainingSec(m * 60);
   };
 
   const totalHoursText = () => {
-    const totalSec = stats?.totalSeconds ?? 0;
-    const hours = (totalSec / 3600) || 0;
+    const totalSec = localTotalSeconds ?? 0;
+    const hours = totalSec / 3600;
     return `${hours.toFixed(1)} saat`;
   };
 
-  const visibleFlowers = flowers.slice(0, 8);
-
-  const progressPercent =
-    ((session?.isRunning ? (1 - remainingSec / (session.durationMinutes * 60)) : ((durationMin * 60 - remainingSec) / (durationMin * 60))) * 100) || 0;
-
+  const progressPercent = ((selectedMinutes * 60 - remainingSec) / (selectedMinutes * 60)) * 100;
   const stage = getStage(Math.max(0, Math.min(100, progressPercent)));
+
+  const emojiForId = (id: string) => {
+    switch (id) {
+      case "lotus": return "🪷";
+      case "aycicegi": return "🌻";
+      case "orkide": return "🌸";
+      case "lale": return "🌷";
+      case "papatya": return "🌼";
+      case "gul": return "🌹";
+      default: return "🌸";
+    }
+  };
+
+  const collectionSlots = Array.from({ length: 10 }).map((_, i) => localFlowers[i]);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -182,12 +197,11 @@ export const FocusScreen: React.FC = () => {
         <Screen>
           <View style={styles.headerRow}>
             <Text variant="h2">Odak</Text>
-            <Pressable onPress={() => navigation.navigate(Routes.Garden as any)} style={{ padding: 8 }}>
-              <Text>Bahçem</Text>
+            <Pressable onPress={() => navigation.navigate(Routes.Garden as any)} style={{ paddingRight: 8 }}>
+              <Text>🌿 Bahçem</Text>
             </Pressable>
           </View>
 
-          {/* Top stats */}
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text variant="muted">Toplam</Text>
@@ -195,37 +209,76 @@ export const FocusScreen: React.FC = () => {
             </View>
             <View style={styles.statCard}>
               <Text variant="muted">Seri</Text>
-              <Text style={{ fontWeight: "700" }}>{stats?.streakDays ?? 0}</Text>
+              <Text style={{ fontWeight: "700" }}>{localStreak}</Text>
             </View>
             <View style={styles.statCard}>
               <Text variant="muted">Çiçek</Text>
-              <Text style={{ fontWeight: "700" }}>{stats?.flowersEarned ?? 0}</Text>
+              <Text style={{ fontWeight: "700" }}>{localFlowers.length}</Text>
             </View>
           </View>
 
-          {/* Big seed/flower area */}
+          <View style={[styles.card, { marginHorizontal: 16 }]}>
+            <Text style={{ fontWeight: "700" }}>Bahçem</Text>
+            <Text variant="muted" style={{ marginTop: 6 }}>
+              Bahçeni ziyaret et ve ödüllerini gör.
+            </Text>
+            <Pressable
+              style={[styles.mainButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate(Routes.Garden as any)}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Bahçeye Git</Text>
+            </Pressable>
+          </View>
+
+          <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+            <Text style={{ fontWeight: "700", marginBottom: 8 }}>Premium Çiçekler</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
+              {[
+                { id: "p1", icon: "🪷", label: "Lotus" },
+                { id: "p2", icon: "🌻", label: "Ayçiçeği" },
+                { id: "p3", icon: "🪻", label: "Orkide" },
+              ].map((p) => (
+                <Pressable
+                  key={p.id}
+                  onPress={() => Alert.alert("Premium yakında", "Bu özellik yakında sunulacak.")}
+                  style={{
+                    flex: 1,
+                    marginHorizontal: 6,
+                    borderRadius: 12,
+                    padding: 12,
+                    alignItems: "center",
+                    backgroundColor: "#fff",
+                    opacity: 0.6,
+                  }}
+                >
+                  <Text style={{ fontSize: 24 }}>{p.icon}</Text>
+                  <Text variant="muted" style={{ marginTop: 8 }}>
+                    {p.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           <View style={styles.seedArea}>
             <Text style={{ fontSize: 18, fontWeight: "800" }}>{stage}</Text>
             <Text variant="muted" style={{ marginTop: 8 }}>
-              {session?.isRunning ? `Kalan: ${formatMMSS(remainingSec)}` : `Hedef: ${durationMin} dk`}
+              {running ? `Kalan: ${formatMMSS(remainingSec)}` : `Hedef: ${selectedMinutes} dk`}
             </Text>
-            {session?.isRunning ? (
-              <View style={{ marginTop: 12 }}>
-                <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={handleStop}>
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>Durdur</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={{ marginTop: 12 }}>
-                <Pressable style={[styles.primaryButton, { backgroundColor: "#FF8A3D" }]} onPress={handleStart}>
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>Çiçeği Büyütmeye Başla</Text>
-                </Pressable>
-              </View>
-            )}
-            {successMsg ? <Text style={{ marginTop: 8, color: "#16A34A" }}>{successMsg}</Text> : null}
+            <View style={{ marginTop: 12 }}>
+              <Pressable
+                style={[styles.primaryButton, { backgroundColor: "#FF8A3D" }]}
+                onPress={() => (running ? setRunning(false) : startSession())}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>{running ? "Durdur" : "Çiçeği Büyütmeye Başla"}</Text>
+              </Pressable>
+              <View style={{ height: 8 }} />
+              <Pressable onPress={debugFinish} style={{ alignItems: "center" }}>
+                <Text variant="muted">Bitir (Test)</Text>
+              </Pressable>
+            </View>
           </View>
 
-          {/* duration selector */}
           <View style={styles.durationRow}>
             {DURATIONS.map((d) => (
               <Pressable
@@ -233,37 +286,33 @@ export const FocusScreen: React.FC = () => {
                 onPress={() => onSelectDuration(d)}
                 style={[
                   styles.durationPill,
-                  durationMin === d ? { backgroundColor: colors.primary } : { backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEE" },
+                  selectedMinutes === d ? { backgroundColor: colors.primary } : { backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEE" },
                 ]}
               >
-                <Text style={durationMin === d ? { color: "#fff", fontWeight: "700" } : { fontWeight: "600" }}>{d} dk</Text>
+                <Text style={selectedMinutes === d ? { color: "#fff", fontWeight: "700" } : { fontWeight: "600" }}>{d} dk</Text>
               </Pressable>
             ))}
           </View>
 
-          {/* Flower collection */}
           <View style={{ marginTop: 16 }}>
             <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
-            <FlatList
-              data={visibleFlowers.length ? visibleFlowers : Array.from({ length: 4 })}
-              keyExtractor={(_, i) => String(i)}
-              numColumns={4}
-              columnWrapperStyle={{ justifyContent: "space-between", marginBottom: 12 }}
-              renderItem={({ item, index }) =>
-                item ? (
-                  <View style={[styles.flowerBox, { backgroundColor: "#fff" }]}>
-                    <Text style={{ fontSize: 24 }}>🌸</Text>
-                    <Text variant="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                      {new Date((item as Flower).earnedAt).toLocaleDateString()}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.flowerBox, { backgroundColor: "#F3F4F6" }]} key={`empty-${index}`}>
-                    <Text variant="muted">—</Text>
-                  </View>
-                )
-              }
-            />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {collectionSlots.map((id, idx) => (
+                <View
+                  key={`${id ?? "empty"}-${idx}`}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    backgroundColor: "#fff",
+                    marginRight: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text style={{ fontWeight: "700" }}>{id ? emojiForId(id) : "—"}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </Screen>
       </SafeAreaView>

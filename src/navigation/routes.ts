@@ -21,6 +21,7 @@ export const Routes = {
   FriendsLeaderboard: "FriendsLeaderboard",
   FriendsRequests: "FriendsRequests",
   FocusSettings: "FocusSettings",
+  FocusTimer: "FocusTimer",
   Achievements: "Achievements",
   Premium: "Premium",
   EditTask: "EditTask",

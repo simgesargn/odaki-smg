@@ -1,112 +1,138 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Pressable, FlatList, StyleSheet } from "react-native";
-import { Screen } from "../ui/Screen";
-import { Text } from "../ui/Text";
-import { useTheme } from "../ui/theme/ThemeProvider";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { Routes } from "../navigation/routes";
-import { loadFlowers, Flower } from "../features/focus/focusStore";
+import React, { useCallback, useState } from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { loadFocusState } from "../focus/focusStore";
+
+function titleFor(id: string) {
+  switch (id) {
+    case "lotus":
+      return "Lotus";
+    case "aycicegi":
+      return "Ayçiçeği";
+    case "orkide":
+      return "Orkide";
+    case "lale":
+      return "Lale";
+    case "papatya":
+      return "Papatya";
+    case "gul":
+      return "Gül";
+    default:
+      return id;
+  }
+}
+
+function emojiFor(id: string) {
+  switch (id) {
+    case "lotus":
+      return "🪷";
+    case "aycicegi":
+      return "🌻";
+    case "orkide":
+      return "🌸";
+    case "lale":
+      return "🌷";
+    case "papatya":
+      return "🌼";
+    case "gul":
+      return "🌹";
+    default:
+      return "🌱";
+  }
+}
 
 export const GardenScreen: React.FC = () => {
-  const { colors } = useTheme();
-  const nav = useNavigation<any>();
-  const [flowers, setFlowers] = useState<Flower[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [flowers, setFlowers] = useState<string[]>([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const list = await loadFlowers();
-      setFlowers(list || []);
-    } catch {
-      setFlowers([]);
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback(() => {
+    (async () => {
+      try {
+        const state = await loadFocusState();
+        setFlowers(state.flowers ?? []);
+      } catch {
+        setFlowers([]);
+      }
+    })();
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      refresh();
+    }, [refresh])
   );
 
+  // aynı çiçeklerden çok olursa “kümelenmiş” göstermek için count map
+  const counts = flowers.reduce<Record<string, number>>((acc, id) => {
+    acc[id] = (acc[id] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const uniqueIds = Object.keys(counts);
+
   return (
-    <Screen>
-      <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-        <Text variant="h2">Bahçem</Text>
-        <Text variant="muted" style={{ marginTop: 6 }}>
-          Odak tamamladıkça çiçeklerin burada görünecek.
-        </Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.h1}>Bahçem</Text>
+      <Text style={styles.sub}>Kazandığın çiçekler burada görünür.</Text>
 
-        <View style={{ height: 16 }} />
-
-        {loading ? (
-          <Text variant="muted">Yükleniyor...</Text>
-        ) : flowers.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={{ fontWeight: "700", fontSize: 16 }}>Bahçeniz burada görünecek.</Text>
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              Odak oturumu tamamladıkça çiçek kazanırsınız.
+      <View style={styles.grid}>
+        {uniqueIds.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>🌱</Text>
+            <Text style={styles.emptyTitle}>Henüz çiçeğin yok</Text>
+            <Text style={styles.emptySub}>
+              Odak oturumu tamamlayınca burada çiçeklerin birikecek.
             </Text>
-            <Pressable
-              style={[styles.cta, { backgroundColor: colors.primary }]}
-              onPress={() => nav.navigate(Routes.Focus as any)}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>Odak Başlat</Text>
-            </Pressable>
           </View>
         ) : (
-          <FlatList
-            data={flowers}
-            keyExtractor={(i) => i.id}
-            numColumns={3}
-            columnWrapperStyle={{ justifyContent: "space-between", marginBottom: 12 }}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            renderItem={({ item }) => (
-              <View style={[styles.flowerBox, { backgroundColor: colors.card }]}>
-                <Text style={{ fontSize: 28 }}>🌸</Text>
-                <Text variant="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                  {new Date(item.earnedAt).toLocaleString()}
-                </Text>
-              </View>
-            )}
-          />
+          uniqueIds.map((id) => (
+            <View key={id} style={styles.card}>
+              <Text style={styles.emoji}>{emojiFor(id)}</Text>
+              <Text style={styles.name}>{titleFor(id)}</Text>
+              <Text style={styles.count}>x{counts[id]}</Text>
+            </View>
+          ))
         )}
       </View>
-    </Screen>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  container: { padding: 16, paddingBottom: 28 },
+  h1: { fontSize: 28, fontWeight: "800", marginBottom: 6 },
+  sub: { color: "#666", marginBottom: 16 },
+
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+
   card: {
+    width: "47%",
+    backgroundColor: "#FFF",
     borderRadius: 16,
-    padding: 16,
-    marginTop: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EEE",
+    marginBottom: 12,
+  },
+  emoji: { fontSize: 36, marginBottom: 8 },
+  name: { fontWeight: "800", marginBottom: 4 },
+  count: { color: "#666" },
+
+  empty: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#EEE",
     alignItems: "center",
   },
-  cta: {
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-  },
-  flowerBox: {
-    flex: 1,
-    minWidth: 0,
-    aspectRatio: 1,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 8,
-  },
+  emptyEmoji: { fontSize: 44, marginBottom: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: "800", marginBottom: 6 },
+  emptySub: { color: "#666", textAlign: "center" },
 });

@@ -21,6 +21,8 @@ import { FriendsActivityScreen } from "../screens/stack/FriendsActivityScreen";
 import { FriendsLeaderboardScreen } from "../screens/stack/FriendsLeaderboardScreen";
 import { FriendsRequestsScreen } from "../screens/stack/FriendsRequestsScreen";
 import { FriendsScreen } from "../screens/Friends/FriendsScreen";
+import { FocusSettingsScreen } from "../screens/stack/FocusSettingsScreen";
+import { FocusTimerScreen } from "../screens/stack/FocusTimerScreen";
 import { AchievementsScreen } from "../screens/stack/AchievementsScreen";
 import { PremiumScreen } from "../screens/stack/PremiumScreen";
 import { EditTaskScreen } from "../screens/main/EditTaskScreen";
@@ -158,6 +160,11 @@ export const RootNavigator: React.FC = () => {
         name={Routes.FriendsRequests}
         component={FriendsRequestsScreen}
         options={{ headerShown: true, title: "Arkadaşlık İstekleri" }}
+      />
+      <RootStack.Screen
+        name={Routes.FocusSettings}
+        component={FocusSettingsScreen}
+        options={{ headerShown: true, title: "Odak Ayarları" }}
       />
       <RootStack.Screen name={Routes.Achievements} component={AchievementsScreen} />
       <RootStack.Screen name={Routes.Premium} component={PremiumScreen} />
