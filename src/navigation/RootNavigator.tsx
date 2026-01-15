@@ -17,7 +17,10 @@ import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { PrivacyScreen } from "../screens/PrivacyScreen";
 import { GardenScreen } from "../screens/GardenScreen";
-import { FriendsScreen } from "../screens/stack/FriendsScreen";
+import { FriendsActivityScreen } from "../screens/stack/FriendsActivityScreen";
+import { FriendsLeaderboardScreen } from "../screens/stack/FriendsLeaderboardScreen";
+import { FriendsRequestsScreen } from "../screens/stack/FriendsRequestsScreen";
+import { FriendsScreen } from "../screens/Friends/FriendsScreen";
 import { AchievementsScreen } from "../screens/stack/AchievementsScreen";
 import { PremiumScreen } from "../screens/stack/PremiumScreen";
 import { EditTaskScreen } from "../screens/main/EditTaskScreen";
@@ -136,12 +139,26 @@ export const RootNavigator: React.FC = () => {
       <RootStack.Screen name={Routes.AuthStack} component={AuthStackComponent} />
       <RootStack.Screen name={Routes.MainTabs} component={MainTabs} />
       <RootStack.Screen name="Menu" component={MenuScreen} options={{ headerShown: true, title: "Menü" }} />
-      <RootStack.Screen name="AddFriend" component={AddFriendScreen} options={{ headerShown: true, title: "Arkadaş Ekle" }} />
+      <RootStack.Screen name={Routes.AddFriend} component={AddFriendScreen} options={{ headerShown: true, title: "Arkadaş Ekle" }} />
       <RootStack.Screen name={Routes.Notifications} component={NotificationsScreen} options={{ headerShown: true, title: "Bildirimler" }} />
       <RootStack.Screen name={Routes.Settings} component={SettingsScreen} options={{ headerShown: true, title: "Ayarlar" }} />
       <RootStack.Screen name={Routes.Privacy} component={PrivacyScreen} options={{ headerShown: true, title: "Gizlilik" }} />
-      <RootStack.Screen name="Garden" component={GardenScreen} options={{ headerShown: true, title: "Bahçem" }} />
-      <RootStack.Screen name={Routes.Friends} component={FriendsScreen} />
+      <RootStack.Screen name={Routes.Garden} component={GardenScreen} options={{ headerShown: true, title: "Bahçe" }} />
+      <RootStack.Screen
+        name={Routes.FriendsActivity}
+        component={FriendsActivityScreen}
+        options={{ headerShown: true, title: "Aktivite Akışı" }}
+      />
+      <RootStack.Screen
+        name={Routes.FriendsLeaderboard}
+        component={FriendsLeaderboardScreen}
+        options={{ headerShown: true, title: "Lider Tablosu" }}
+      />
+      <RootStack.Screen
+        name={Routes.FriendsRequests}
+        component={FriendsRequestsScreen}
+        options={{ headerShown: true, title: "Arkadaşlık İstekleri" }}
+      />
       <RootStack.Screen name={Routes.Achievements} component={AchievementsScreen} />
       <RootStack.Screen name={Routes.Premium} component={PremiumScreen} />
       <RootStack.Screen name={Routes.EditTask} component={EditTaskScreen} options={{ headerShown: true, title: "Görevi Düzenle" }} />
