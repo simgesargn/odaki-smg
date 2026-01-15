@@ -9,6 +9,7 @@ import {
   Alert,
   FlatList,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { Screen } from "../ui/Screen";
 import { Text } from "../ui/Text";
 import { useTheme } from "../ui/theme/ThemeProvider";
@@ -21,15 +22,13 @@ const MOCK_FRIENDS: Friend[] = [
   { id: "3", name: "Semra", handle: "@semra", score: 70, streak: 1, status: "Offline" },
 ];
 
-const MOCK_ACTIVITY = [
-  { id: "a1", text: "Simge 25 dk odak yaptı", when: "Bugün" },
-  { id: "a2", text: "Merve görev tamamladı", when: "Dün" },
-  { id: "a3", text: "Semra 15 dk odak yaptı", when: "2 gün önce" },
-];
+// Aktivite akışı başlangıçta boş olacak (Figma boş-state gösterimi için)
+const MOCK_ACTIVITY: { id: string; text: string; when: string }[] = [];
 
 export const FriendsScreen: React.FC = () => {
   const { colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<"leaderboard" | "activity" | "add">("leaderboard");
+  const navigation = useNavigation<any>();
+  const [activeTab, setActiveTab] = useState<"activity" | "leaderboard">("activity");
   const [query, setQuery] = useState("");
   const [friends] = useState<Friend[]>(MOCK_FRIENDS);
   const [activity] = useState(MOCK_ACTIVITY);
@@ -54,43 +53,67 @@ export const FriendsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text variant="h2" style={{ marginBottom: 12 }}>Arkadaşlar</Text>
 
-        {/* Segmented pills */}
+        {/* Sekmeler */}
         <View style={styles.segmentRow}>
-          <Pressable
-            style={[styles.pill, activeTab === "leaderboard" ? styles.pillActive : null]}
-            onPress={() => setActiveTab("leaderboard")}
-          >
-            <Text style={activeTab === "leaderboard" ? styles.pillTextActive : styles.pillText}>Liderlik</Text>
-          </Pressable>
-
           <Pressable
             style={[styles.pill, activeTab === "activity" ? styles.pillActive : null]}
             onPress={() => setActiveTab("activity")}
           >
-            <Text style={activeTab === "activity" ? styles.pillTextActive : styles.pillText}>Aktivite</Text>
+            <Text style={activeTab === "activity" ? styles.pillTextActive : styles.pillText}>Aktivite Akışı</Text>
           </Pressable>
 
           <Pressable
-            style={[styles.pill, activeTab === "add" ? styles.pillActive : null]}
-            onPress={() => setActiveTab("add")}
+            style={[styles.pill, activeTab === "leaderboard" ? styles.pillActive : null]}
+            onPress={() => setActiveTab("leaderboard")}
           >
-            <Text style={activeTab === "add" ? styles.pillTextActive : styles.pillText}>Ekle</Text>
+            <Text style={activeTab === "leaderboard" ? styles.pillTextActive : styles.pillText}>Lider Tablosu</Text>
           </Pressable>
         </View>
 
         <View style={{ height: 12 }} />
 
-        {/* CONTENT */}
-        {activeTab === "leaderboard" && (
+        {/* İçerik */}
+        {activeTab === "activity" && (
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={styles.sectionTitle}>Liderlik Tablosu</Text>
-
-            {filteredFriends.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text variant="muted">Henüz arkadaşın yok</Text>
-                <Pressable style={[styles.primaryBtn, { backgroundColor: colors.primary, marginTop: 12 }]} onPress={() => setActiveTab("add")}>
+            {activity.length === 0 ? (
+              <View style={{ paddingVertical: 24, alignItems: "center" }}>
+                <Text style={{ fontWeight: "700", fontSize: 16 }}>Henüz aktivite yok</Text>
+                <Text variant="muted" style={{ marginTop: 8, textAlign: "center" }}>
+                  Arkadaş ekleyerek odak ve görev aktivitelerini takip edebilirsin.
+                </Text>
+                <Pressable
+                  style={[styles.primaryBtn, { backgroundColor: colors.primary, marginTop: 16 }]}
+                  onPress={() => navigation.navigate("AddFriend" as any)}
+                >
                   <Text style={{ color: "#fff", fontWeight: "700" }}>Arkadaş Ekle</Text>
                 </Pressable>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.sectionTitle}>Aktivite Akışı</Text>
+                {activity.map((a) => (
+                  <View key={a.id} style={styles.activityRow}>
+                    <View style={styles.activityIcon}>
+                      <Text>⟲</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text>{a.text}</Text>
+                    </View>
+                    <Text variant="muted">{a.when}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === "leaderboard" && (
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={styles.sectionTitle}>Lider Tablosu</Text>
+
+            {filteredFriends.length === 0 ? (
+              <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                <Text variant="muted">Lider tablosu boş</Text>
               </View>
             ) : (
               <FlatList
@@ -103,15 +126,8 @@ export const FriendsScreen: React.FC = () => {
                     </View>
 
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
-                        <View style={[styles.avatar, { backgroundColor: "#F0E9FF" }]}>
-                          <Text style={{ fontWeight: "700" }}>{item.name[0]}</Text>
-                        </View>
-                        <View style={{ marginLeft: 10 }}>
-                          <Text style={{ fontWeight: "700" }}>{item.name}</Text>
-                          <Text variant="muted" style={{ marginTop: 2 }}>{item.handle}</Text>
-                        </View>
-                      </View>
+                      <Text style={{ fontWeight: "700" }}>{item.name}</Text>
+                      <Text variant="muted" style={{ marginTop: 2 }}>{item.handle}</Text>
                     </View>
 
                     <View style={{ alignItems: "flex-end" }}>
@@ -121,58 +137,26 @@ export const FriendsScreen: React.FC = () => {
                   </View>
                 )}
                 ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                scrollEnabled={false}
               />
             )}
           </View>
         )}
-
-        {activeTab === "activity" && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={styles.sectionTitle}>Son Aktiviteler</Text>
-            <View style={{ height: 8 }} />
-            {activity.map((a) => (
-              <View key={a.id} style={styles.activityRow}>
-                <View style={styles.activityIcon}>
-                  <Text style={{ fontWeight: "700" }}>⟲</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text>{a.text}</Text>
-                </View>
-                <Text variant="muted">{a.when}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {activeTab === "add" && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={styles.sectionTitle}>Arkadaş Ekle</Text>
-            <View style={{ height: 8 }} />
-            <TextInput
-              placeholder="Kullanıcı adı (örn: @simgesargn)"
-              placeholderTextColor="#999"
-              value={addHandle}
-              onChangeText={setAddHandle}
-              style={[styles.input, { borderColor: colors.border, backgroundColor: "#fff" }]}
-            />
-            <Pressable style={[styles.primaryBtn, { backgroundColor: colors.primary, marginTop: 12 }]} onPress={onSendRequest}>
-              <Text style={{ color: "#fff", fontWeight: "700" }}>İstek Gönder</Text>
-            </Pressable>
-
-            <Pressable style={[styles.linkBtn, { marginTop: 10 }]} onPress={() => Alert.alert("QR ile ekle", "Yakında")}>
-              <Text variant="muted">QR ile ekle (yakında)</Text>
-            </Pressable>
-          </View>
-        )}
       </ScrollView>
+
+      {/* Sağ altta sabit Arkadaş Ekle butonu */}
+      <Pressable
+        style={[styles.fab, { backgroundColor: "#6C5CE7" }]}
+        onPress={() => navigation.navigate("AddFriend" as any)}
+      >
+        <Text style={{ color: "#fff", fontWeight: "700" }}>Arkadaş Ekle</Text>
+      </Pressable>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  segmentRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  segmentRow: { flexDirection: "row", justifyContent: "space-between" },
   pill: {
     flex: 1,
     paddingVertical: 10,
@@ -201,7 +185,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
-  emptyWrap: { alignItems: "center", paddingVertical: 20 },
 
   leaderRow: {
     flexDirection: "row",
@@ -217,7 +200,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rankText: { fontWeight: "700" },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 
   activityRow: {
     flexDirection: "row",
@@ -240,4 +222,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   linkBtn: { alignItems: "center", opacity: 0.6 },
+
+  fab: {
+    position: "absolute",
+    right: 16,
+    bottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    elevation: 6,
+  },
 });

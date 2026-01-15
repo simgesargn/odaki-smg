@@ -16,12 +16,13 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { PrivacyScreen } from "../screens/PrivacyScreen";
-import { GardenScreen } from "../screens/stack/GardenScreen";
+import { GardenScreen } from "../screens/GardenScreen";
 import { FriendsScreen } from "../screens/stack/FriendsScreen";
 import { AchievementsScreen } from "../screens/stack/AchievementsScreen";
 import { PremiumScreen } from "../screens/stack/PremiumScreen";
 import { EditTaskScreen } from "../screens/main/EditTaskScreen";
 import { MenuScreen } from "../screens/stack/MenuScreen";
+import { AddFriendScreen } from "../screens/AddFriendScreen";
 import { auth } from "../firebase/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { getBool } from "../storage/local";
@@ -135,10 +136,11 @@ export const RootNavigator: React.FC = () => {
       <RootStack.Screen name={Routes.AuthStack} component={AuthStackComponent} />
       <RootStack.Screen name={Routes.MainTabs} component={MainTabs} />
       <RootStack.Screen name="Menu" component={MenuScreen} options={{ headerShown: true, title: "Menü" }} />
+      <RootStack.Screen name="AddFriend" component={AddFriendScreen} options={{ headerShown: true, title: "Arkadaş Ekle" }} />
       <RootStack.Screen name={Routes.Notifications} component={NotificationsScreen} options={{ headerShown: true, title: "Bildirimler" }} />
       <RootStack.Screen name={Routes.Settings} component={SettingsScreen} options={{ headerShown: true, title: "Ayarlar" }} />
       <RootStack.Screen name={Routes.Privacy} component={PrivacyScreen} options={{ headerShown: true, title: "Gizlilik" }} />
-      <RootStack.Screen name={Routes.Garden} component={GardenScreen} options={{ headerShown: true, title: "Bahçe" }} />
+      <RootStack.Screen name="Garden" component={GardenScreen} options={{ headerShown: true, title: "Bahçem" }} />
       <RootStack.Screen name={Routes.Friends} component={FriendsScreen} />
       <RootStack.Screen name={Routes.Achievements} component={AchievementsScreen} />
       <RootStack.Screen name={Routes.Premium} component={PremiumScreen} />

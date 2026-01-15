@@ -15,6 +15,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { theme } from "../../ui/theme";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
+import { addCompletedFocusSession } from "../../services/focusSessionStore";
+import { addGardenReward } from "../../services/gardenStore";
 
 const PRESETS = [15, 25, 50]; // dakikalar
 
@@ -204,6 +206,7 @@ export const FocusScreen: React.FC = () => {
         setSaving(false);
         return;
       }
+      // Firestore kaydı
       await addDoc(collection(db, "focusSessions"), {
         userId: uid,
         startedAt: serverTimestamp(),
@@ -213,7 +216,21 @@ export const FocusScreen: React.FC = () => {
         createdAt: serverTimestamp(),
         status: "completed",
       });
-      Alert.alert("Odak tamamlandı");
+
+      // Local storage: tamamlanan oturum ve bahçe ödülü (hata yutulur)
+      try {
+        await addCompletedFocusSession(targetMin);
+        await addGardenReward({ earnedMinutes: targetMin, type: "flower" });
+      } catch {
+        // ignore local store errors
+      }
+
+      // Kullanıcıya tebrik bildirimi; Bahçeyi Gör seçilirse Garden ekranına git
+      Alert.alert("Harika!", "Tebrikler! +1 Çiçek 🌸", [
+        { text: "Bahçeyi Gör", onPress: () => navigation.navigate(Routes.Garden as any) },
+        { text: "Tamam", style: "default" },
+      ]);
+
       reset();
     } catch (e: any) {
       setError("Firestore yazma hatası: " + (e?.message || e?.code || "bilinmeyen"));

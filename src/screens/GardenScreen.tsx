@@ -1,97 +1,121 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Alert } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text as RNText, Pressable, FlatList, RefreshControl } from "react-native";
 import { Screen } from "../ui/Screen";
 import { Text } from "../ui/Text";
+import { getGardenItems, clearGarden, GardenItem } from "../services/gardenStore";
 import { useTheme } from "../ui/theme/ThemeProvider";
+
+function emojiFor(item: GardenItem) {
+  if (item.type === "seed") return "🌱";
+  return "🌸";
+}
 
 export const GardenScreen: React.FC = () => {
   const { colors } = useTheme();
-  const [level, setLevel] = useState<number>(1);
-  const [xp, setXp] = useState<number>(0);
+  const [items, setItems] = useState<GardenItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const plants = [
-    { id: "p1", name: "Tohum", locked: false },
-    { id: "p2", name: "Fidan", locked: true },
-    { id: "p3", name: "Çiçek", locked: true },
-  ];
+  const load = useCallback(async () => {
+    const list = await getGardenItems();
+    setItems(list);
+  }, []);
 
-  const addXp = () => {
-    setXp((prev) => {
-      const next = prev + 10;
-      if (next >= 100) {
-        setLevel((l) => l + 1);
-        return next - 100;
-      }
-      return next;
-    });
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   return (
     <Screen>
-      <View style={styles.container}>
-        <Text variant="h2" style={{ marginBottom: 8 }}>Bahçe</Text>
-        <Text variant="muted" style={{ marginBottom: 12 }}>Odak yaptıkça bahçen büyür.</Text>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+        <Text variant="h2" style={{ color: colors.text }}>Bahçem</Text>
+        <Text variant="muted" style={{ marginTop: 6 }}>Odak tamamladıkça çiçek kazanırsın. 🌸</Text>
 
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={styles.smallLabel}>Seviye</Text>
-          <Text style={styles.levelText}>Seviye {level}</Text>
-          <Text variant="muted" style={{ marginTop: 6 }}>{`XP ${xp}/100`}</Text>
+        <View style={{ marginTop: 14, flexDirection: "row" }}>
+          <Pressable
+            onPress={onRefresh}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: colors.border,
+              marginRight: 10,
+            }}
+          >
+            <Text style={{ fontWeight: "600", color: colors.text }}>Yenile</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={async () => {
+              await clearGarden();
+              await load();
+            }}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Text style={{ fontWeight: "600", color: colors.danger }}>Temizle</Text>
+          </Pressable>
         </View>
 
-        <View style={{ height: 12 }} />
-
-        <View style={styles.cardRow}>
-          {plants.map((p) => (
-            <View key={p.id} style={[styles.plantCard, { backgroundColor: colors.card }]}>
-              <Text style={{ fontWeight: "700" }}>{p.name}</Text>
-              <Text variant="muted" style={{ marginTop: 8 }}>{p.locked ? "Kilidi açık değil" : "Erişilebilir"}</Text>
-            </View>
-          ))}
+        <View style={{ marginTop: 16 }}>
+          <FlatList
+            data={items}
+            keyExtractor={(x) => x.id}
+            numColumns={3}
+            columnWrapperStyle={{ justifyContent: "space-between", marginBottom: 12 }}
+            contentContainerStyle={{ paddingBottom: 30 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            ListEmptyComponent={
+              <View
+                style={{
+                  marginTop: 20,
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ fontWeight: "700", fontSize: 16, color: colors.text }}>Henüz çiçek yok</Text>
+                <Text variant="muted" style={{ marginTop: 6 }}>
+                  Odak ekranında bir oturum tamamla, bahçen dolsun.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  aspectRatio: 1,
+                  borderRadius: 18,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 34 }}>{emojiFor(item)}</Text>
+                <Text style={{ marginTop: 6, fontWeight: "700", color: colors.text }}>{item.earnedMinutes} dk</Text>
+              </View>
+            )}
+          />
         </View>
-
-        <View style={{ height: 16 }} />
-
-        <Pressable
-          style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-          onPress={() => {
-            addXp();
-            Alert.alert("XP kazanıldı", "+10 XP");
-          }}
-        >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Odakla XP kazan</Text>
-        </Pressable>
       </View>
     </Screen>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { padding: 16 },
-  card: {
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  smallLabel: { fontSize: 13, color: "#6b7280" },
-  levelText: { fontSize: 28, fontWeight: "800", marginTop: 6 },
-  cardRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  plantCard: {
-    flex: 1,
-    marginHorizontal: 6,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  primaryBtn: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-});
