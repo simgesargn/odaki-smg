@@ -1,54 +1,41 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { View, Pressable, FlatList, StyleSheet, ScrollView } from "react-native";
+import { Screen } from "../ui/Screen";
+import { Text } from "../ui/Text";
+import { useTheme } from "../ui/theme/ThemeProvider";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { Routes } from "../navigation/routes";
 import { loadFocusState } from "../focus/focusStore";
-
-function titleFor(id: string) {
-  switch (id) {
-    case "lotus":
-      return "Lotus";
-    case "aycicegi":
-      return "Ayçiçeği";
-    case "orkide":
-      return "Orkide";
-    case "lale":
-      return "Lale";
-    case "papatya":
-      return "Papatya";
-    case "gul":
-      return "Gül";
-    default:
-      return id;
-  }
-}
-
-function emojiFor(id: string) {
-  switch (id) {
-    case "lotus":
-      return "🪷";
-    case "aycicegi":
-      return "🌻";
-    case "orkide":
-      return "🌸";
-    case "lale":
-      return "🌷";
-    case "papatya":
-      return "🌼";
-    case "gul":
-      return "🌹";
-    default:
-      return "🌱";
-  }
-}
+import { FLOWERS, normalizeFlowerId, formatFlowerTitle, flowerEmoji, type FlowerId } from "../focus/flowers";
 
 export const GardenScreen: React.FC = () => {
-  const [flowers, setFlowers] = useState<string[]>([]);
+  const { colors } = useTheme();
+  const nav = useNavigation<any>();
+  const [flowers, setFlowers] = useState<Array<{ id: string; name: string; type: FlowerId; earnedAt?: number }>>([]);
 
   const refresh = useCallback(() => {
     (async () => {
       try {
         const state = await loadFocusState();
-        setFlowers(state.flowers ?? []);
+        const raw = Array.isArray(state.flowers) ? state.flowers : [];
+
+        // normalize entries to objects: { id, name, type, earnedAt? }
+        const normalized = raw.map((f: any, idx: number) => {
+          if (!f) return { id: `f_missing_${idx}`, name: "Çiçek", type: "default" as FlowerId };
+          if (typeof f === "string") {
+            const fid = normalizeFlowerId(f);
+            return { id: `f_${idx}_${fid}`, name: formatFlowerTitle(fid), type: fid, earnedAt: undefined };
+          }
+          if (typeof f === "object") {
+            const name = typeof f.name === "string" ? f.name : (typeof f.title === "string" ? f.title : "Çiçek");
+            const type = normalizeFlowerId(f.type ?? name);
+            const id = typeof f.id === "string" && f.id.length > 0 ? f.id : `f_${idx}_${type}`;
+            return { id, name, type, earnedAt: f.earnedAt };
+          }
+          return { id: `f_${idx}`, name: "Çiçek", type: "default" as FlowerId };
+        });
+
+        setFlowers(normalized);
       } catch {
         setFlowers([]);
       }
@@ -61,78 +48,71 @@ export const GardenScreen: React.FC = () => {
     }, [refresh])
   );
 
-  // aynı çiçeklerden çok olursa “kümelenmiş” göstermek için count map
-  const counts = flowers.reduce<Record<string, number>>((acc, id) => {
-    acc[id] = (acc[id] ?? 0) + 1;
+  // group by type/name
+  const counts = flowers.reduce<Record<string, { item: any; count: number }>>((acc, it) => {
+    const key = it.name || it.type || "Çiçek";
+    if (!acc[key]) acc[key] = { item: it, count: 0 };
+    acc[key].count += 1;
     return acc;
   }, {});
 
-  const uniqueIds = Object.keys(counts);
+  const entries = Object.keys(counts).map((k) => ({ key: k, item: counts[k].item, count: counts[k].count }));
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.h1}>Bahçem</Text>
-      <Text style={styles.sub}>Kazandığın çiçekler burada görünür.</Text>
+    <Screen>
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Text variant="h2">Bahçem</Text>
+        <Text variant="muted" style={{ marginTop: 6 }}>
+          Odak tamamladıkça çiçeklerin burada görünecek.
+        </Text>
 
-      <View style={styles.grid}>
-        {uniqueIds.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🌱</Text>
-            <Text style={styles.emptyTitle}>Henüz çiçeğin yok</Text>
-            <Text style={styles.emptySub}>
-              Odak oturumu tamamlayınca burada çiçeklerin birikecek.
+        <View style={{ height: 16 }} />
+
+        {entries.length === 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={{ fontWeight: "700", fontSize: 16 }}>Bahçeniz burada görünecek.</Text>
+            <Text variant="muted" style={{ marginTop: 8 }}>
+              Odak oturumu tamamladıkça çiçek kazanırsınız.
             </Text>
+            <Pressable style={[styles.cta, { backgroundColor: colors.primary, marginTop: 12 }]} onPress={() => nav.navigate(Routes.Focus as any)}>
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Odak Başlat</Text>
+            </Pressable>
           </View>
         ) : (
-          uniqueIds.map((id) => (
-            <View key={id} style={styles.card}>
-              <Text style={styles.emoji}>{emojiFor(id)}</Text>
-              <Text style={styles.name}>{titleFor(id)}</Text>
-              <Text style={styles.count}>x{counts[id]}</Text>
-            </View>
-          ))
+          <View style={{ marginTop: 8 }}>
+            {entries.map((e, idx) => {
+              const it = e.item;
+              const emoji = flowerEmoji(normalizeFlowerId(it.type ?? it.name));
+              const title = typeof it.name === "string" ? it.name : formatFlowerTitle(normalizeFlowerId(it.type));
+              return (
+                <View key={`${it.id ?? title}-${idx}`} style={[styles.card, { backgroundColor: colors.card, marginBottom: 12 }]}>
+                  <Text style={styles.emoji}>{emoji}</Text>
+                  <Text style={styles.name}>{title}</Text>
+                  <Text style={styles.count}>x{e.count}</Text>
+                </View>
+              );
+            })}
+          </View>
         )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 28 },
-  h1: { fontSize: 28, fontWeight: "800", marginBottom: 6 },
-  sub: { color: "#666", marginBottom: 16 },
-
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-
   card: {
-    width: "47%",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    alignItems: "center",
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
-    borderColor: "#EEE",
-    marginBottom: 12,
+    borderColor: "#eee",
+    alignItems: "center",
+  },
+  cta: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
   },
   emoji: { fontSize: 36, marginBottom: 8 },
   name: { fontWeight: "800", marginBottom: 4 },
   count: { color: "#666" },
-
-  empty: {
-    width: "100%",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#EEE",
-    alignItems: "center",
-  },
-  emptyEmoji: { fontSize: 44, marginBottom: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", marginBottom: 6 },
-  emptySub: { color: "#666", textAlign: "center" },
 });

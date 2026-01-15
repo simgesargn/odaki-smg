@@ -13,7 +13,8 @@ import { FocusScreen } from "../screens/main/FocusScreen";
 import { OdiChatScreen } from "../screens/main/OdiChatScreen";
 import { StatsScreen } from "../screens/main/StatsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
-import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { NotificationsScreen } from "../screens/NotificationsScreen"; // bildirim ayarları ekranı (ayarlara taşınacak)
+import { NotificationsInboxScreen } from "../screens/stack/NotificationsInboxScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { PrivacyScreen } from "../screens/PrivacyScreen";
 import { GardenScreen } from "../screens/GardenScreen";
@@ -142,8 +143,14 @@ export const RootNavigator: React.FC = () => {
       <RootStack.Screen name={Routes.MainTabs} component={MainTabs} />
       <RootStack.Screen name="Menu" component={MenuScreen} options={{ headerShown: true, title: "Menü" }} />
       <RootStack.Screen name={Routes.AddFriend} component={AddFriendScreen} options={{ headerShown: true, title: "Arkadaş Ekle" }} />
-      <RootStack.Screen name={Routes.Notifications} component={NotificationsScreen} options={{ headerShown: true, title: "Bildirimler" }} />
+      <RootStack.Screen name={Routes.Notifications} component={NotificationsInboxScreen} options={{ headerShown: true, title: "Bildirimler" }} />
       <RootStack.Screen name={Routes.Settings} component={SettingsScreen} options={{ headerShown: true, title: "Ayarlar" }} />
+      {/* Bildirim Ayarları - Settings içinde açılacak ekran */}
+      <RootStack.Screen
+        name={Routes.NotificationSettings}
+        component={NotificationsScreen}
+        options={{ headerShown: true, title: "Bildirim Ayarları" }}
+      />
       <RootStack.Screen name={Routes.Privacy} component={PrivacyScreen} options={{ headerShown: true, title: "Gizlilik" }} />
       <RootStack.Screen name={Routes.Garden} component={GardenScreen} options={{ headerShown: true, title: "Bahçe" }} />
       <RootStack.Screen

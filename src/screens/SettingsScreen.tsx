@@ -5,10 +5,13 @@ import { Text } from "../ui/Text";
 import { useTheme } from "../ui/theme/ThemeProvider";
 import { useI18n } from "../i18n/I18nProvider";
 import { preferencesStorage } from "../services/preferencesStorage";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../navigation/routes";
 
 export const SettingsScreen: React.FC = () => {
   const { mode, setMode, colors } = useTheme();
   const { lang, setLang, t } = useI18n();
+  const navigation = useNavigation<any>();
 
   const [localLang, setLocalLang] = useState<"tr" | "en">(lang);
   const [dark, setDark] = useState(mode === "dark");
@@ -81,6 +84,10 @@ export const SettingsScreen: React.FC = () => {
             <Text style={styles.label}>{t("account")}</Text>
             <Text style={styles.sub}>{email || "-"}</Text>
           </View>
+
+          <Pressable style={styles.row} onPress={() => navigation.navigate(Routes.NotificationSettings as any)}>
+            <Text style={styles.label}>Bildirim Ayarları</Text>
+          </Pressable>
 
           <View style={[styles.row, { paddingVertical: 18 }]}>
             <View>

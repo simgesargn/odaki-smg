@@ -47,11 +47,6 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.chev}>›</Text>
           </Pressable>
 
-          <Pressable style={styles.menuRow} onPress={() => navigation.navigate(Routes.Notifications as any)}>
-            <Text style={styles.menuLabel}>Bildirimler</Text>
-            <Text style={styles.chev}>›</Text>
-          </Pressable>
-
           <Pressable style={styles.menuRow} onPress={() => navigation.navigate(Routes.Privacy as any)}>
             <Text style={styles.menuLabel}>Gizlilik</Text>
             <Text style={styles.chev}>›</Text>

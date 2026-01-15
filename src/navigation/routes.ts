@@ -13,6 +13,7 @@ export const Routes = {
   Stats: "Stats",
   Profile: "Profile",
   Notifications: "Notifications",
+  NotificationSettings: "NotificationSettings",
   Settings: "Settings",
   Garden: "Garden",
   Friends: "Friends",

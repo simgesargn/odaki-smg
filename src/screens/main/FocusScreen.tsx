@@ -1,378 +1,236 @@
-import React, { useEffect, useRef, useState, useLayoutEffect } from "react";
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  Text as RNText,
-  FlatList,
-} from "react-native";
-import { Screen } from "../../ui/Screen";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, ScrollView, Pressable, Alert } from "react-native";
 import { Text } from "../../ui/Text";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { Card } from "../../ui/Card";
+import { Button } from "../../ui/Button";
 import { Routes } from "../../navigation/routes";
-import { useTheme } from "../../ui/theme/ThemeProvider";
-
+import { useNavigation } from "@react-navigation/native";
 import {
-  loadFocusSession,
-  saveFocusSession,
-  clearFocusSession,
-  loadFocusStats,
-  addCompletedFocusSession,
-  addFlower,
-  loadFlowers,
-  FocusSessionState,
-  FocusStats,
-  Flower,
-} from "../../features/focus/focusStore";
-import { loadFocusState, saveFocusState, pickRandomFlowerId } from "../../focus/focusStore";
+  loadFocusState,
+  setSelectedMinutes,
+  startSession,
+  tickSession,
+  completeSession,
+  addWarningOrFail,
+  type FlowerType,
+} from "../../focus/focusStore";
 
-const DURATIONS = [15, 25, 45, 60];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const formatMMSS = (sec: number) => `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`;
 
 export const FocusScreen: React.FC = () => {
-  const { colors } = useTheme();
-  const navigation = useNavigation<any>();
+  const nav = useNavigation<any>();
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable onPress={() => navigation.navigate(Routes.FocusSettings as any)} style={{ paddingRight: 12 }}>
-          <Text style={{ fontSize: 20 }}>⚙️</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation]);
+  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<any>(null);
 
-  const [selectedMinutes, setSelectedMinutes] = useState<number>(25);
-  const [running, setRunning] = useState<boolean>(false);
-  const [remainingSec, setRemainingSec] = useState<number>(selectedMinutes * 60);
+  const intervalRef = useRef<any>(null);
 
-  const [localTotalSeconds, setLocalTotalSeconds] = useState<number>(0);
-  const [localStreak, setLocalStreak] = useState<number>(0);
-  const [localFlowers, setLocalFlowers] = useState<string[]>([]);
+  const selected = state?.selectedMinutes ?? 25;
+  const running = Boolean(state?.session?.running);
+  const remainingSec = state?.session?.remainingSec ?? selected * 60;
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const totalSeconds = (state?.stats?.totalSeconds ?? 0) as number;
+  const streak = (state?.stats?.streak ?? 0) as number;
+  const flowersEarned = (state?.stats?.flowersEarned ?? 0) as number;
 
-  useFocusEffect(
-    React.useCallback(() => {
-      let mounted = true;
-      (async () => {
-        try {
-          const s = await loadFocusState();
-          if (!mounted) return;
-          setLocalTotalSeconds(s.totalSeconds || 0);
-          setLocalStreak(s.streak || 0);
-          setLocalFlowers(Array.isArray(s.flowers) ? s.flowers : []);
-        } catch {
-          // ignore
-        }
-      })();
-      return () => {
-        mounted = false;
-      };
-    }, [])
-  );
+  const totalHoursText = useMemo(() => {
+    const hours = totalSeconds / 3600;
+    return `${hours.toFixed(1)} saat`;
+  }, [totalSeconds]);
 
   useEffect(() => {
-    setRemainingSec(selectedMinutes * 60);
-  }, [selectedMinutes]);
+    let mounted = true;
+    (async () => {
+      const st = await loadFocusState();
+      if (!mounted) return;
+      setState(st);
+      setLoading(false);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!running) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
       return;
     }
-    intervalRef.current = setInterval(() => {
-      setRemainingSec((r) => {
-        if (r <= 1) {
-          clearInterval(intervalRef.current!);
-          intervalRef.current = null;
-          finishSession();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(async () => {
+      const st = await tickSession(Date.now());
+      setState(st);
+    }, 500);
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
     };
   }, [running]);
 
-  const formatMMSS = (sec: number) => {
-    const m = Math.floor(sec / 60).toString().padStart(2, "0");
-    const s = Math.floor(sec % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
+  const pick = async (m: number) => {
+    const st = await setSelectedMinutes(m);
+    setState(st);
   };
 
-  const getStage = (progressPercent: number) => {
-    if (progressPercent < 25) return "Tohum";
-    if (progressPercent < 60) return "Filiz";
-    if (progressPercent < 90) return "Tomurcuk";
-    return "Çiçek";
+  const onStart = async () => {
+    const st = await startSession();
+    setState(st);
   };
 
-  const startSession = async () => {
-    setRunning(true);
-    const now = Date.now();
-    const endsAt = now + selectedMinutes * 60 * 1000;
-    const s: FocusSessionState = { isRunning: true, startedAt: now, endsAt, durationMinutes: selectedMinutes };
-    await saveFocusSession(s);
+  const onTestFinish = async () => {
+    const st = await completeSession("tohum");
+    setState(st);
+    Alert.alert("Tebrikler!", "1 çiçek kazandın 🌱");
   };
 
-  const finishSession = async () => {
-    setRunning(false);
-    const addedSec = selectedMinutes * 60;
-    const newTotal = (localTotalSeconds || 0) + addedSec;
-    const newStreak = (localStreak || 0) + 1;
-    const flowerId = pickRandomFlowerId();
-    const newFlowers = [flowerId, ...localFlowers];
+  const startDisabled = loading || running;
 
-    setLocalTotalSeconds(newTotal);
-    setLocalStreak(newStreak);
-    setLocalFlowers(newFlowers);
-
-    try {
-      await saveFocusState({ totalSeconds: newTotal, streak: newStreak, flowers: newFlowers });
-    } catch {
-      // ignore
-    }
-
-    try {
-      await addCompletedFocusSession(selectedMinutes);
-      await addFlower({ type: "default", earnedAt: Date.now() });
-    } catch {
-      // ignore
-    }
-
-    Alert.alert("Tebrikler 🎉", "Oturumu tamamladın! Yeni bir çiçek kazandın.");
-  };
-
-  const debugFinish = () => {
-    if (running) {
-      setRemainingSec(0);
-    } else {
-      Alert.alert("Oturum çalışmıyor", "Önce oturumu başlatın.");
-    }
-  };
-
-  const onSelectDuration = (m: number) => {
-    if (running) return;
-    setSelectedMinutes(m);
-    setRemainingSec(m * 60);
-  };
-
-  const totalHoursText = () => {
-    const totalSec = localTotalSeconds ?? 0;
-    const hours = totalSec / 3600;
-    return `${hours.toFixed(1)} saat`;
-  };
-
-  const progressPercent = ((selectedMinutes * 60 - remainingSec) / (selectedMinutes * 60)) * 100;
-  const stage = getStage(Math.max(0, Math.min(100, progressPercent)));
-
-  const emojiForId = (id: string) => {
-    switch (id) {
-      case "lotus": return "🪷";
-      case "aycicegi": return "🌻";
-      case "orkide": return "🌸";
-      case "lale": return "🌷";
-      case "papatya": return "🌼";
-      case "gul": return "🌹";
-      default: return "🌸";
-    }
-  };
-
-  const collectionSlots = Array.from({ length: 10 }).map((_, i) => localFlowers[i]);
+  const emojiFor = (type: FlowerType | string) =>
+    type === "tohum" ? "🌱" : type === "lotus" ? "🪷" : type === "aycicegi" ? "🌻" : "🌸";
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <SafeAreaView style={[styles.safe, { backgroundColor: "#F6F7FB" }]}>
-        <Screen>
-          <View style={styles.headerRow}>
-            <Text variant="h2">Odak</Text>
-            <Pressable onPress={() => navigation.navigate(Routes.Garden as any)} style={{ paddingRight: 8 }}>
-              <Text>🌿 Bahçem</Text>
-            </Pressable>
-          </View>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+      {/* Header actions */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <Text variant="h2">Odak</Text>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text variant="muted">Toplam</Text>
-              <Text style={{ fontWeight: "700" }}>{totalHoursText()}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text variant="muted">Seri</Text>
-              <Text style={{ fontWeight: "700" }}>{localStreak}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text variant="muted">Çiçek</Text>
-              <Text style={{ fontWeight: "700" }}>{localFlowers.length}</Text>
-            </View>
-          </View>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          <Pressable
+            onPress={() => nav.navigate(Routes.Garden)}
+            style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: "rgba(120,120,255,0.12)" }}
+          >
+            <Text>🌿 Bahçem</Text>
+          </Pressable>
 
-          <View style={[styles.card, { marginHorizontal: 16 }]}>
-            <Text style={{ fontWeight: "700" }}>Bahçem</Text>
-            <Text variant="muted" style={{ marginTop: 6 }}>
-              Bahçeni ziyaret et ve ödüllerini gör.
-            </Text>
+          <Pressable onPress={() => nav.navigate(Routes.FocusSettings)} style={{ padding: 8 }}>
+            <Text style={{ fontSize: 18 }}>⚙️</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Stats */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
+          <Text variant="muted">Toplam</Text>
+          <Text style={{ fontWeight: "700" }}>{totalHoursText}</Text>
+        </Card>
+        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
+          <Text variant="muted">Seri</Text>
+          <Text style={{ fontWeight: "700" }}>{streak}</Text>
+        </Card>
+        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
+          <Text variant="muted">Çiçek</Text>
+          <Text style={{ fontWeight: "700" }}>{flowersEarned}</Text>
+        </Card>
+      </View>
+
+      {/* Garden quick card */}
+      <Card style={{ padding: 14, marginBottom: 14 }}>
+        <Text style={{ fontWeight: "700", marginBottom: 6 }}>Bahçem</Text>
+        <Text variant="muted" style={{ marginBottom: 10 }}>
+          Bahçeni ziyaret et ve ödüllerini gör.
+        </Text>
+        <Button title="Bahçeye Git" onPress={() => nav.navigate(Routes.Garden)} />
+      </Card>
+
+      {/* Premium flowers (dummy) */}
+      <Text style={{ fontWeight: "700", marginBottom: 8 }}>Premium Çiçekler</Text>
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+        {[
+          { id: "p1", icon: "🪷", label: "Lotus" },
+          { id: "p2", icon: "🌻", label: "Ayçiçeği" },
+          { id: "p3", icon: "🪻", label: "Orkide" },
+        ].map((p) => (
+          <Pressable
+            key={p.id}
+            onPress={() => Alert.alert("Premium", "Premium'a geçme akışı demo amaçlıdır.")}
+            style={{
+              flex: 1,
+              marginHorizontal: 6,
+              borderRadius: 12,
+              padding: 12,
+              alignItems: "center",
+              backgroundColor: "#fff",
+              opacity: 0.6,
+            }}
+          >
+            <Text style={{ fontSize: 24 }}>{p.icon}</Text>
+            <Text variant="muted" style={{ marginTop: 8 }}>{p.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* Session card */}
+      <Card style={{ padding: 16, marginBottom: 12, alignItems: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 6 }}>Tohum</Text>
+        <Text variant="muted" style={{ marginBottom: 10 }}>
+          Hedef: {selected} dk
+        </Text>
+
+        <Text style={{ fontSize: 40, fontWeight: "900", marginBottom: 12 }}>
+          {formatMMSS(remainingSec)}
+        </Text>
+
+        <Button title={running ? "Odaklan..." : "Çiçeği Büyütmeye Başla"} onPress={onStart} disabled={startDisabled} />
+
+        <Pressable onPress={onTestFinish} style={{ marginTop: 10, padding: 8 }}>
+          <Text variant="muted">Bitir</Text>
+        </Pressable>
+      </Card>
+
+      {/* Minutes */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+        {[15, 25, 45, 60].map((m) => {
+          const active = m === selected;
+          return (
             <Pressable
-              style={[styles.mainButton, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate(Routes.Garden as any)}
+              key={m}
+              onPress={() => pick(m)}
+              disabled={running}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 999,
+                alignItems: "center",
+                backgroundColor: active ? "rgba(110, 90, 255, 0.9)" : "rgba(0,0,0,0.04)",
+                opacity: running ? 0.6 : 1,
+              }}
             >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>Bahçeye Git</Text>
+              <Text style={{ color: active ? "white" : "black", fontWeight: "700" }}>{m} dk</Text>
             </Pressable>
-          </View>
+          );
+        })}
+      </View>
 
-          <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-            <Text style={{ fontWeight: "700", marginBottom: 8 }}>Premium Çiçekler</Text>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
-              {[
-                { id: "p1", icon: "🪷", label: "Lotus" },
-                { id: "p2", icon: "🌻", label: "Ayçiçeği" },
-                { id: "p3", icon: "🪻", label: "Orkide" },
-              ].map((p) => (
-                <Pressable
-                  key={p.id}
-                  onPress={() => Alert.alert("Premium yakında", "Bu özellik yakında sunulacak.")}
-                  style={{
-                    flex: 1,
-                    marginHorizontal: 6,
-                    borderRadius: 12,
-                    padding: 12,
-                    alignItems: "center",
-                    backgroundColor: "#fff",
-                    opacity: 0.6,
-                  }}
-                >
-                  <Text style={{ fontSize: 24 }}>{p.icon}</Text>
-                  <Text variant="muted" style={{ marginTop: 8 }}>
-                    {p.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.seedArea}>
-            <Text style={{ fontSize: 18, fontWeight: "800" }}>{stage}</Text>
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              {running ? `Kalan: ${formatMMSS(remainingSec)}` : `Hedef: ${selectedMinutes} dk`}
-            </Text>
-            <View style={{ marginTop: 12 }}>
-              <Pressable
-                style={[styles.primaryButton, { backgroundColor: "#FF8A3D" }]}
-                onPress={() => (running ? setRunning(false) : startSession())}
+      {/* Collection (simple) */}
+      <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
+      <Card style={{ padding: 12 }}>
+        {(!state?.flowers || state.flowers.length === 0) ? (
+          <Text variant="muted">Henüz çiçeğin yok. Odak oturumunu tamamlayınca burada görünecek.</Text>
+        ) : (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            {state.flowers.slice(0, 12).map((f: any, index: number) => (
+              <View
+                key={`${f?.id ?? "flower"}-${index}`}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 999,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(0,0,0,0.05)",
+                }}
               >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>{running ? "Durdur" : "Çiçeği Büyütmeye Başla"}</Text>
-              </Pressable>
-              <View style={{ height: 8 }} />
-              <Pressable onPress={debugFinish} style={{ alignItems: "center" }}>
-                <Text variant="muted">Bitir (Test)</Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.durationRow}>
-            {DURATIONS.map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => onSelectDuration(d)}
-                style={[
-                  styles.durationPill,
-                  selectedMinutes === d ? { backgroundColor: colors.primary } : { backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEE" },
-                ]}
-              >
-                <Text style={selectedMinutes === d ? { color: "#fff", fontWeight: "700" } : { fontWeight: "600" }}>{d} dk</Text>
-              </Pressable>
+                <Text>{f.type === "tohum" ? "🌱" : f.type === "lotus" ? "🪷" : f.type === "aycicegi" ? "🌻" : "🌸"}</Text>
+              </View>
             ))}
           </View>
-
-          <View style={{ marginTop: 16 }}>
-            <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {collectionSlots.map((id, idx) => (
-                <View
-                  key={`${id ?? "empty"}-${idx}`}
-                  style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                    backgroundColor: "#fff",
-                    marginRight: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <Text style={{ fontWeight: "700" }}>{id ? emojiForId(id) : "—"}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </Screen>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+        )}
+      </Card>
+    </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 8 },
-  statsRow: { flexDirection: "row", justifyContent: "space-between", padding: 16, gap: 8 },
-  statCard: { flex: 1, borderRadius: 12, padding: 12, backgroundColor: "#fff", alignItems: "center" },
-
-  seedArea: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 16,
-    padding: 20,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-
-  primaryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-
-  durationRow: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, marginTop: 12, gap: 8 },
-  durationPill: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: "center" },
-
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 6,
-    backgroundColor: "#fff",
-  },
-
-  mainButton: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-
-  flowerBox: {
-    flex: 1,
-    minWidth: 0,
-    aspectRatio: 1,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-});

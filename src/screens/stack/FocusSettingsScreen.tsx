@@ -2,29 +2,52 @@ import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
-
-const DEFAULT_ALLOWED = ["Telefon", "Notlar", "Takvim"];
-const DEFAULT_BLOCKED = ["Mesajlar", "Instagram", "TikTok", "YouTube", "X / Twitter", "Facebook", "WhatsApp", "Snapchat", "Telegram"];
-const FREE_LIMIT = 3;
+import { loadFocusSettings, saveFocusSettings, FocusSettingsLocal, DEFAULT_FOCUS_SETTINGS } from "../../features/focus/focusStore";
 
 export const FocusSettingsScreen: React.FC = () => {
-  const [allowed, setAllowed] = useState<string[]>(DEFAULT_ALLOWED);
-  const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED);
-  const [freeLimit] = useState<number>(FREE_LIMIT);
+  const [settings, setSettings] = useState<FocusSettingsLocal | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const s = await loadFocusSettings();
+        if (!mounted) return;
+        setSettings(s ?? DEFAULT_FOCUS_SETTINGS);
+      } catch {
+        setSettings(DEFAULT_FOCUS_SETTINGS);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const persist = async (next: FocusSettingsLocal) => {
+    setSettings(next);
+    try {
+      await saveFocusSettings(next);
+    } catch {
+      Alert.alert("Hata", "Ayarlar kaydedilemedi.");
+    }
+  };
 
   const onRemoveAllowed = (app: string) => {
-    const nextAllowed = allowed.filter((a) => a !== app);
-    setAllowed(nextAllowed);
-    setBlocked([app, ...blocked]);
+    if (!settings) return;
+    const nextAllowed = settings.allowedApps.filter((a) => a !== app);
+    const nextBlocked = [app, ...settings.blockedApps];
+    persist({ ...settings, allowedApps: nextAllowed, blockedApps: nextBlocked });
   };
 
   const onAllowBlocked = (app: string) => {
-    if (allowed.length >= freeLimit) {
-      Alert.alert("Limit aşılıyor", `Ücretsiz planda en fazla ${freeLimit} uygulama izin verilebilir.`);
+    if (!settings) return;
+    if (settings.allowedApps.length >= settings.freeLimit) {
+      Alert.alert("Limit aşılıyor", `Ücretsiz planda en fazla ${settings.freeLimit} uygulama izin verilebilir.`);
       return;
     }
-    setBlocked(blocked.filter((b) => b !== app));
-    setAllowed([...allowed, app]);
+    const nextBlocked = settings.blockedApps.filter((b) => b !== app);
+    const nextAllowed = [...settings.allowedApps, app];
+    persist({ ...settings, allowedApps: nextAllowed, blockedApps: nextBlocked });
   };
 
   const onPremium = () => {
@@ -49,7 +72,7 @@ export const FocusSettingsScreen: React.FC = () => {
         <View style={[styles.card, { marginTop: 12 }]}>
           <Text style={{ fontWeight: "700" }}>Ücretsiz Plan Limiti</Text>
           <Text variant="muted" style={{ marginTop: 8 }}>
-            Ücretsiz kullanıcı en fazla {freeLimit} uygulama ekleyebilir.
+            Ücretsiz kullanıcı en fazla {settings?.freeLimit ?? DEFAULT_FOCUS_SETTINGS.freeLimit} uygulama ekleyebilir.
           </Text>
           <Pressable style={[styles.cta]} onPress={onPremium}>
             <Text style={{ color: "#fff", fontWeight: "700" }}>Premium'a Geç</Text>
@@ -57,11 +80,13 @@ export const FocusSettingsScreen: React.FC = () => {
         </View>
 
         <View style={[styles.card, { marginTop: 12 }]}>
-          <Text style={{ fontWeight: "700" }}>İzinli Uygulamalar ({allowed.length}/{freeLimit})</Text>
-          {allowed.length === 0 ? (
+          <Text style={{ fontWeight: "700" }}>
+            İzinli Uygulamalar ({settings?.allowedApps.length ?? 0}/{settings?.freeLimit ?? DEFAULT_FOCUS_SETTINGS.freeLimit})
+          </Text>
+          {(settings?.allowedApps.length ?? 0) === 0 ? (
             <Text variant="muted" style={{ marginTop: 8 }}>Henüz izinli uygulama yok.</Text>
           ) : (
-            allowed.map((app) => (
+            (settings?.allowedApps ?? []).map((app) => (
               <View key={app} style={styles.row}>
                 <Text style={{ fontWeight: "700" }}>{app}</Text>
                 <Pressable onPress={() => onRemoveAllowed(app)} style={styles.smallBtn}>
@@ -74,10 +99,10 @@ export const FocusSettingsScreen: React.FC = () => {
 
         <View style={[styles.card, { marginTop: 12 }]}>
           <Text style={{ fontWeight: "700" }}>Engellenmiş Uygulamalar</Text>
-          {blocked.length === 0 ? (
+          {(settings?.blockedApps.length ?? 0) === 0 ? (
             <Text variant="muted" style={{ marginTop: 8 }}>Engellenmiş uygulama yok.</Text>
           ) : (
-            blocked.map((app) => (
+            (settings?.blockedApps ?? []).map((app) => (
               <View key={app} style={styles.row}>
                 <Text style={{ fontWeight: "700" }}>{app}</Text>
                 <Pressable onPress={() => onAllowBlocked(app)} style={[styles.smallBtn, { backgroundColor: "#2563EB" }]}>
