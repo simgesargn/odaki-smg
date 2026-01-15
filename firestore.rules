@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerField() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function isOwnerResource() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Users docId == auth.uid
+    match /users/{uid} {
+      allow get, list: if signedIn() && uid == request.auth.uid;
+      allow create, update, delete: if signedIn() && uid == request.auth.uid;
+    }
+
+    // Tasks
+    match /tasks/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    // Notifications
+    match /notifications/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    // Focus sessions
+    match /focusSessions/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    // AI chats
+    match /aiChats/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    // Optional collections
+    match /categories/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    match /friends/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    match /garden/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+
+    match /challenges/{docId} {
+      allow get, list: if isOwnerResource();
+      allow create: if isOwnerField();
+      allow update, delete: if isOwnerResource();
+    }
+  }
+}
