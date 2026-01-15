@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Alert } from "react-native";
-import { Screen } from "../../ui/Screen";
-import { Text } from "../../ui/Text";
-import { theme } from "../../ui/theme";
+import { Screen } from "../ui/Screen";
+import { Text } from "../ui/Text";
+import { theme } from "../ui/theme";
 import { useNavigation } from "@react-navigation/native";
-import { Routes } from "../../navigation/routes";
-import { auth } from "../../firebase/firebase";
+import { Routes } from "../navigation/routes";
+import { auth } from "../firebase/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export const ProfileScreen: React.FC = () => {
-  const nav = useNavigation<any>();
-  const navigation = nav;
-
+  const navigation = useNavigation<any>();
   const [user, setUser] = useState<{ displayName?: string | null; email?: string | null } | null>(null);
 
   useEffect(() => {
@@ -34,13 +32,11 @@ export const ProfileScreen: React.FC = () => {
   return (
     <Screen>
       <View style={styles.container}>
-        {/* Üst kart: isim ve e‑posta */}
         <View style={styles.topCard}>
           <Text variant="h2">{user?.displayName || "Misafir"}</Text>
           <Text variant="muted" style={styles.emailText}>{user?.email || "-"}</Text>
         </View>
 
-        {/* Menü kartı */}
         <View style={styles.menuCard}>
           <Pressable style={styles.menuRow} onPress={() => navigation.navigate(Routes.Settings as any)}>
             <Text style={styles.menuLabel}>Ayarlar</Text>
@@ -91,7 +87,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emailText: { marginTop: 8, color: theme.colors.muted },
-
   menuCard: {
     backgroundColor: "#fff",
     borderRadius: 12,

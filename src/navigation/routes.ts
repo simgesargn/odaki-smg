@@ -19,4 +19,5 @@ export const Routes = {
   Achievements: "Achievements",
   Premium: "Premium",
   EditTask: "EditTask",
+  Privacy: "Privacy",
 } as const;

@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "odaki-smg"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

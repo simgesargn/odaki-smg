@@ -12,9 +12,10 @@ import { TasksScreen } from "../screens/main/TasksScreen";
 import { FocusScreen } from "../screens/main/FocusScreen";
 import { OdiChatScreen } from "../screens/main/OdiChatScreen";
 import { StatsScreen } from "../screens/main/StatsScreen";
-import { ProfileScreen } from "../screens/main/ProfileScreen";
-import { NotificationsScreen } from "../screens/stack/NotificationsScreen";
-import { SettingsScreen } from "../screens/stack/SettingsScreen";
+import { ProfileScreen } from "../screens/ProfileScreen";
+import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { SettingsScreen } from "../screens/SettingsScreen";
+import { PrivacyScreen } from "../screens/PrivacyScreen";
 import { GardenScreen } from "../screens/stack/GardenScreen";
 import { FriendsScreen } from "../screens/stack/FriendsScreen";
 import { AchievementsScreen } from "../screens/stack/AchievementsScreen";
@@ -26,12 +27,15 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { getBool } from "../storage/local";
 import { STORAGE_KEYS } from "../storage/keys";
 import { Pressable, Text as RNText } from "react-native";
+import { useI18n } from "../i18n/I18nProvider";
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const AuthInner = createNativeStackNavigator();
 
 function MainTabs() {
+  const { t } = useI18n();
+
   return (
     <Tab.Navigator
       screenOptions={({ navigation }) => ({
@@ -49,12 +53,41 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name={Routes.Home} component={HomeScreen} options={{ title: "Odaklan, Planla, Büyüt", tabBarLabel: "Home", headerShown: false }} />
-      <Tab.Screen name={Routes.Tasks} component={TasksScreen} options={{ title: "Görevler", tabBarLabel: "Tasks" }} />
-      <Tab.Screen name={Routes.Focus} component={FocusScreen} options={{ title: "Odak", tabBarLabel: "Focus" }} />
-      <Tab.Screen name={Routes.Odi} component={OdiChatScreen} options={{ title: "Odi Koçu", tabBarLabel: "Odi" }} />
-      <Tab.Screen name={Routes.Stats} component={StatsScreen} options={{ title: "İstatistikler", tabBarLabel: "Stats" }} />
-      <Tab.Screen name={Routes.Profile} component={ProfileScreen} options={{ title: "Profil", tabBarLabel: "Profile" }} />
+      <Tab.Screen
+        name={Routes.Home}
+        component={HomeScreen}
+        options={{ title: t("home"), tabBarLabel: t("home"), headerShown: false }}
+      />
+      <Tab.Screen
+        name={Routes.Tasks}
+        component={TasksScreen}
+        options={{ title: t("tasks"), tabBarLabel: t("tasks") }}
+      />
+      <Tab.Screen
+        name={Routes.Focus}
+        component={FocusScreen}
+        options={{ title: t("focus"), tabBarLabel: t("focus") }}
+      />
+      <Tab.Screen
+        name={Routes.Odi}
+        component={OdiChatScreen}
+        options={{ title: t("odi"), tabBarLabel: t("odi") }}
+      />
+      <Tab.Screen
+        name={Routes.Friends}
+        component={FriendsScreen}
+        options={{ title: "Arkadaşlar", tabBarLabel: "Arkadaşlar" }}
+      />
+      <Tab.Screen
+        name={Routes.Stats}
+        component={StatsScreen}
+        options={{ title: t("stats"), tabBarLabel: t("stats") }}
+      />
+      <Tab.Screen
+        name={Routes.Profile}
+        component={ProfileScreen}
+        options={{ title: t("profile"), tabBarLabel: t("profile") }}
+      />
     </Tab.Navigator>
   );
 }
@@ -104,7 +137,8 @@ export const RootNavigator: React.FC = () => {
       <RootStack.Screen name="Menu" component={MenuScreen} options={{ headerShown: true, title: "Menü" }} />
       <RootStack.Screen name={Routes.Notifications} component={NotificationsScreen} options={{ headerShown: true, title: "Bildirimler" }} />
       <RootStack.Screen name={Routes.Settings} component={SettingsScreen} options={{ headerShown: true, title: "Ayarlar" }} />
-      <RootStack.Screen name={Routes.Garden} component={GardenScreen} />
+      <RootStack.Screen name={Routes.Privacy} component={PrivacyScreen} options={{ headerShown: true, title: "Gizlilik" }} />
+      <RootStack.Screen name={Routes.Garden} component={GardenScreen} options={{ headerShown: true, title: "Bahçe" }} />
       <RootStack.Screen name={Routes.Friends} component={FriendsScreen} />
       <RootStack.Screen name={Routes.Achievements} component={AchievementsScreen} />
       <RootStack.Screen name={Routes.Premium} component={PremiumScreen} />

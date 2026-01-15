@@ -6,7 +6,7 @@ import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "../../firebase/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -52,6 +52,14 @@ export const RegisterScreen: React.FC = () => {
         avatarEmoji,
         createdAt: serverTimestamp(),
       });
+
+      if (auth.currentUser && auth.currentUser.email && !auth.currentUser.displayName) {
+        const name = auth.currentUser.email.split("@")[0];
+        updateProfile(auth.currentUser, { displayName: name }).catch(() => {
+          // hata yutuluyor, UI akışı etkilenmesin
+        });
+      }
+
       nav.replace(Routes.MainTabs as any);
     } catch (e: any) {
       const code = e?.code;

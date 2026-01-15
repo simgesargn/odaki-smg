@@ -4,7 +4,7 @@ import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
 import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "../../firebase/firebase";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
@@ -39,6 +39,12 @@ export const LoginScreen: React.FC = () => {
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       // Başarılı giriş: navigation reset ile root'a geç
+      if (auth.currentUser && auth.currentUser.email && !auth.currentUser.displayName) {
+        const name = auth.currentUser.email.split("@")[0];
+        updateProfile(auth.currentUser, { displayName: name }).catch(() => {
+          // isteğe bağlı: hata logu, ama kullanıcı akışını bozmayın
+        });
+      }
       nav.reset({ index: 0, routes: [{ name: Routes.MainTabs as any }] });
       return;
     } catch (e: any) {

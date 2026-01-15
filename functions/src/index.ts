@@ -1,32 +1,69 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { setGlobalOptions } from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
+import { defineSecret } from "firebase-functions/params";
+import axios from "axios";
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+setGlobalOptions({ region: "europe-west1" });
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+export const odiChat = onCall(
+  { region: "europe-west1", secrets: [GROQ_API_KEY] },
+  async (request) => {
+    logger.info("odiChat called", { uid: request.auth?.uid });
+
+    try {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Login required");
+      }
+
+      const message = typeof request.data?.message === "string" ? request.data.message.trim() : "";
+      if (!message) {
+        throw new HttpsError("invalid-argument", "Message missing");
+      }
+
+      const apiKey = await GROQ_API_KEY.value();
+      if (!apiKey) {
+        throw new HttpsError("failed-precondition", "Groq key missing");
+      }
+
+      const resp = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          model: "llama3-8b-8192",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Odi, a supportive productivity coach for the Odaki app. Reply in Turkish, concise.",
+            },
+            { role: "user", content: message },
+          ],
+          temperature: 0.6,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 20000,
+        }
+      );
+
+      const rawReply =
+        resp?.data?.choices?.[0]?.message?.content ??
+        resp?.data?.choices?.[0]?.text ??
+        "";
+
+      const reply = typeof rawReply === "string" ? rawReply.trim() : String(rawReply || "");
+      logger.info("groq ok", { snippet: reply.slice(0, 120) });
+
+      return { reply };
+    } catch (err: any) {
+      logger.error("odiChat error", err?.response?.data || err?.message || err);
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError("internal", "Assistant error");
+    }
+  }
+);

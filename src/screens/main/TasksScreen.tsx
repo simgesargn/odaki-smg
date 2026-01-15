@@ -1,625 +1,458 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Pressable, FlatList, Modal, TextInput, Alert, Animated } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  TouchableOpacity,
+  Platform,
+  Modal,
+} from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
+import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 import { auth, db } from "../../firebase/firebase";
 import {
   collection,
-  addDoc,
   query,
   where,
   orderBy,
   onSnapshot,
-  updateDoc,
-  doc,
+  addDoc,
   serverTimestamp,
-  Timestamp,
-  writeBatch,
+  updateDoc,
   deleteDoc,
+  doc,
+  Timestamp,
 } from "firebase/firestore";
-import { TaskDoc } from "../../firebase/firestoreTypes";
-import { onAuthStateChanged } from "firebase/auth";
-import { useRoute, useNavigation } from "@react-navigation/native";
-import { Swipeable, RectButton } from "react-native-gesture-handler";
-import { Routes } from "../../navigation/routes";
+// date picker (optional dependency)
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const CATEGORIES = [
-  { name: "Ders", color: "#2F80ED" },
-  { name: "İş", color: "#F2994A" },
-  { name: "Kişisel", color: "#9B51E0" },
-  { name: "Alışveriş", color: "#27AE60" },
-  { name: "Sağlık", color: "#EB5757" },
-];
+type Task = {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  priority: "low" | "medium" | "high";
+  completed: boolean;
+  dueAt?: any;
+  createdAt?: any;
+};
 
 export const TasksScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
-  const [tasks, setTasks] = useState<TaskDoc[]>([]);
-  const [filter, setFilter] = useState<"tumu" | "aktif" | "tamamlanan">("tumu");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-
-  // new task fields
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [dateStr, setDateStr] = useState("");
-  const [timeStr, setTimeStr] = useState("");
+  const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // --- yeni state'ler for details/modal/edit ---
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<TaskDoc | null>(null);
-  const [editMode, setEditMode] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "completed">("all");
+  const [sortMode, setSortMode] = useState<"date" | "priority">("date");
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  // edit fields
-  const [eTitle, setETitle] = useState("");
-  const [eDescription, setEDescription] = useState("");
-  const [eCategory, setECategory] = useState(CATEGORIES[0]);
-  const [ePriority, setEPriority] = useState<"low" | "medium" | "high">("medium");
-  const [eDateStr, setEDateStr] = useState("");
-  const [eTimeStr, setETimeStr] = useState("");
-
-  // busy flags
-  const [editSaving, setEditSaving] = useState(false);
-  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
-      setUid(u?.uid || null);
-      console.log("uid:", u?.uid || null);
-    });
+    const unsubAuth = auth.onAuthStateChanged((u) => setUid(u?.uid || null));
     return () => unsubAuth();
   }, []);
 
   useEffect(() => {
     if (!uid) {
       setTasks([]);
-      console.log("tasks loaded:", 0);
       return;
     }
     setError(null);
-    const q = query(collection(db, "tasks"), where("userId", "==", uid));
+    const col = collection(db, "tasks");
+    const q = query(col, where("userId", "==", uid), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
       q,
       (snap) => {
-        console.log("tasks docs:", snap.size);
-        if (snap.size === 0) {
-          console.log("querying tasks for uid:", uid, "collection: tasks");
-        }
-        const items: TaskDoc[] = [];
+        const items: Task[] = [];
         snap.forEach((d) => {
           const data = d.data() as any;
-          items.push({ ...(data as TaskDoc), id: d.id });
-        });
-        items.sort((a, b) => {
-          const aTime = (a.createdAt as any)?.toMillis ? (a.createdAt as any).toMillis() : 0;
-          const bTime = (b.createdAt as any)?.toMillis ? (b.createdAt as any).toMillis() : 0;
-          if (aTime && bTime) return bTime - aTime;
-          return (a.title || "").localeCompare(b.title || "");
+          items.push({
+            id: d.id,
+            userId: data.userId,
+            title: data.title,
+            description: data.description || "",
+            priority: (data.priority as any) || "medium",
+            completed: !!data.completed,
+            dueAt: data.dueAt,
+            createdAt: data.createdAt,
+          });
         });
         setTasks(items);
-        console.log("tasks loaded:", items.length);
       },
-      (e: any) => {
-        setError("Firestore okuma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-        setTasks([]);
-        console.log("tasks loaded:", 0);
+      (e) => {
+        setError("Görevleri yüklerken hata: " + (e?.message || e?.code || "bilinmeyen"));
       }
     );
     return () => unsub();
   }, [uid]);
 
-  useEffect(() => {
-    const tid = route?.params?.openTaskId;
-    if (tid && tasks.length > 0) {
-      const t = tasks.find((x) => x.id === tid);
-      if (t) openTaskModal(t);
-    }
-  }, [route?.params?.openTaskId, tasks]);
-
-  const parseDue = () => {
-    if (!dateStr) return null;
+  const onAdd = async () => {
+    if (!uid) return;
+    const t = title.trim();
+    if (!t) return;
+    setLoading(true);
+    setError(null);
     try {
-      const datePart = dateStr.trim(); // YYYY-MM-DD
-      const timePart = timeStr.trim() || "00:00";
-      const dt = new Date(`${datePart}T${timePart}:00`);
-      if (isNaN(dt.getTime())) return null;
-      return Timestamp.fromDate(dt);
-    } catch {
-      return null;
-    }
-  };
-
-  const parseDueFromFields = (dateStrVal: string, timeStrVal: string) => {
-    if (!dateStrVal) return null;
-    try {
-      const datePart = dateStrVal.trim();
-      const timePart = timeStrVal.trim() || "00:00";
-      const dt = new Date(`${datePart}T${timePart}:00`);
-      if (isNaN(dt.getTime())) return null;
-      return Timestamp.fromDate(dt);
-    } catch {
-      return null;
-    }
-  };
-
-  const onSave = async () => {
-    if (!uid) {
-      setError("Giriş yapılmadı.");
-      return;
-    }
-    if (!title.trim()) {
-      setError("Başlık gerekli.");
-      return;
-    }
-    const dueAt = parseDue();
-    try {
-      const payload = {
+      const due = dueDate ? Timestamp.fromDate(dueDate) : null;
+      await addDoc(collection(db, "tasks"), {
         userId: uid,
-        title: title.trim(),
-        description: description.trim(),
-        categoryName: category.name,
-        categoryColor: category.color,
-        priority,
-        dueAt: dueAt || null,
+        title: t,
+        description: description.trim() || "",
         completed: false,
+        priority,
+        dueAt: due,
         createdAt: serverTimestamp(),
-      };
-      await addDoc(collection(db, "tasks"), payload);
-      // reset
+      });
+      // reset inputs
       setTitle("");
       setDescription("");
-      setDateStr("");
-      setTimeStr("");
       setPriority("medium");
-      setCategory(CATEGORIES[0]);
-      setModalOpen(false);
-      setError(null);
+      setDueDate(null);
     } catch (e: any) {
-      setError("Firestore yazma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-    }
-  };
-
-  const onSaveEdit = async () => {
-    if (!selectedTask?.id) return;
-    const dueAt = parseDueFromFields(eDateStr, eTimeStr);
-    setEditSaving(true);
-    // optimistic update locally
-    setTasks((prev) =>
-      prev.map((p) =>
-        p.id === selectedTask.id
-          ? {
-              ...p,
-              title: eTitle,
-              description: eDescription,
-              categoryName: eCategory.name,
-              categoryColor: eCategory.color,
-              priority: ePriority,
-              dueAt: dueAt || null,
-            }
-          : p
-      )
-    );
-    try {
-      await updateDoc(doc(db, "tasks", selectedTask.id), {
-        title: eTitle,
-        description: eDescription,
-        categoryName: eCategory.name,
-        categoryColor: eCategory.color,
-        priority: ePriority,
-        dueAt: dueAt || null,
-        updatedAt: serverTimestamp(),
-      });
-      // update selectedTask to reflect saved values
-      setSelectedTask((prev) =>
-        prev
-          ? {
-              ...prev,
-              title: eTitle,
-              description: eDescription,
-              categoryName: eCategory.name,
-              categoryColor: eCategory.color,
-              priority: ePriority,
-              dueAt: dueAt || null,
-            }
-          : prev
-      );
-      setEditMode(false);
-    } catch (e: any) {
-      setError("Firestore yazma hatası: " + (e?.message || e?.code || "bilinmeyen"));
+      setError("Görev eklenemedi: " + (e?.message || e?.code || "bilinmeyen"));
     } finally {
-      setEditSaving(false);
+      setLoading(false);
     }
   };
 
-  const onDeleteTask = async () => {
-    if (!selectedTask?.id) return;
-    Alert.alert("Onay", "Bu görevi silmek istediğine emin misin?", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Sil",
-        style: "destructive",
-        onPress: async () => {
-          setDeleteProcessing(true);
-          try {
-            await deleteDoc(doc(db, "tasks", selectedTask.id!));
-            // optimistic local removal
-            setTasks((prev) => prev.filter((p) => p.id !== selectedTask.id));
-            setDetailsModalVisible(false);
-            setSelectedTask(null);
-          } catch (e: any) {
-            setError("Firestore silme hatası: " + (e?.message || e?.code || "bilinmeyen"));
-          } finally {
-            setDeleteProcessing(false);
-          }
-        },
-      },
-    ]);
-  };
-
-  const toggleComplete = async (task: TaskDoc) => {
-    if (!task.id) return;
-    const newVal = !task.completed;
-    // optimistic UI
-    setTasks((prev) => prev.map((p) => (p.id === task.id ? { ...p, completed: newVal } : p)));
+  const onToggle = async (item: Task) => {
     try {
-      await updateDoc(doc(db, "tasks", task.id), {
-        completed: newVal,
-        completedAt: newVal ? serverTimestamp() : null,
-        updatedAt: serverTimestamp(),
+      await updateDoc(doc(db, "tasks", item.id), {
+        completed: !item.completed,
       });
     } catch (e: any) {
-      setError("Firestore yazma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-      // revert optimistic
-      setTasks((prev) => prev.map((p) => (p.id === task.id ? { ...p, completed: task.completed } : p)));
+      setError("Güncelleme hatası: " + (e?.message || e?.code || "bilinmeyen"));
     }
   };
 
-  const openTaskModal = (task: TaskDoc) => {
-    setSelectedTask(task);
-    // populate edit fields
-    setETitle(task.title || "");
-    setEDescription(task.description || "");
-    setECategory({ name: task.categoryName || "Ders", color: task.categoryColor || "#2F80ED" });
-    setEPriority(task.priority || "medium");
-    if (task.dueAt && (task.dueAt as any).toDate) {
-      const dt = (task.dueAt as any).toDate();
-      setEDateStr(dt.toISOString().slice(0, 10));
-      setETimeStr(dt.toTimeString().slice(0, 5));
-    } else {
-      setEDateStr("");
-      setETimeStr("");
-    }
-    setEditMode(false);
-    setDetailsModalVisible(true);
-  };
-
-  const onCleanDuplicates = async () => {
-    if (!uid) {
-      Alert.alert("Hata", "Kullanıcı bulunamadı.");
-      return;
-    }
+  const onDelete = async (id: string) => {
     try {
-      // group tasks by composite key
-      const groups: Record<string, TaskDoc[]> = {};
-      tasks.forEach((t) => {
-        const key = `${t.title || ""}||${t.description || ""}||${t.priority}||${t.categoryName || ""}`;
-        (groups[key] = groups[key] || []).push(t);
-      });
-
-      const toDeleteIds: string[] = [];
-      Object.keys(groups).forEach((k) => {
-        const arr = groups[k];
-        if (arr.length <= 1) return;
-        // keep newest by createdAt
-        arr.sort((a, b) => {
-          const at = (a.createdAt as any)?.toMillis ? (a.createdAt as any).toMillis() : 0;
-          const bt = (b.createdAt as any)?.toMillis ? (b.createdAt as any).toMillis() : 0;
-          return bt - at;
-        });
-        const keep = arr[0];
-        const deletes = arr.slice(1);
-        deletes.forEach((d) => {
-          if (d.id) toDeleteIds.push(d.id);
-        });
-      });
-
-      if (toDeleteIds.length === 0) {
-        Alert.alert("Bilgi", "Tekrarlanan görev bulunamadı.");
-        return;
-      }
-
-      const batch = writeBatch(db);
-      toDeleteIds.forEach((id) => batch.delete(doc(db, "tasks", id)));
-      await batch.commit();
-
-      Alert.alert("Başarılı", "Tekrarlanan görevler temizlendi.");
+      await deleteDoc(doc(db, "tasks", id));
     } catch (e: any) {
-      setError("Temizleme hatası: " + (e?.message || e?.code || "bilinmeyen"));
+      setError("Silme hatası: " + (e?.message || e?.code || "bilinmeyen"));
     }
   };
 
-  const filtered = tasks.filter((t) => {
-    if (filter === "tumu") return true;
-    if (filter === "aktif") return !t.completed;
-    if (filter === "tamamlanan") return !!t.completed;
-    return true;
-  });
+  // filtering + sorting
+  const getVisibleTasks = () => {
+    const timeOf = (v: any) => {
+      if (!v) return 0;
+      if (v?.toDate && typeof v.toDate === "function") return v.toDate().getTime();
+      if (typeof v === "number") return v;
+      if (v instanceof Date) return v.getTime();
+      return 0;
+    };
 
-  const counts = {
-    total: tasks.length,
-    completed: tasks.filter((t) => t.completed).length,
-    active: tasks.filter((t) => !t.completed).length,
-  };
+    let list = tasks.slice();
+    if (activeFilter === "active") list = list.filter((t) => !t.completed);
+    if (activeFilter === "completed") list = list.filter((t) => t.completed);
 
-  // helper: render left (edit) action
-  const renderLeftActions = (progress: any, dragX: any, item: TaskDoc) => {
-    return (
-      <RectButton style={[actionStyles.leftAction]} onPress={() => navigation.navigate(Routes.EditTask as any, { taskId: item.id })}>
-        <Text style={{ color: "#fff" }}>Düzenle</Text>
-      </RectButton>
-    );
-  };
-
-  // helper: render right (delete) action
-  const renderRightActions = (progress: any, dragX: any, item: TaskDoc) => {
-    return (
-      <RectButton
-        style={[actionStyles.rightAction]}
-        onPress={() =>
-          Alert.alert("Onay", "Bu görevi silmek istediğine emin misin?", [
-            { text: "İptal", style: "cancel" },
-            {
-              text: "Sil",
-              style: "destructive",
-              onPress: async () => {
-                try {
-                  if (!item.id) return;
-                  await deleteDoc(doc(db, "tasks", item.id));
-                  // local update handled by snapshot; still optimistic remove to reduce flicker
-                  setTasks((prev) => prev.filter((p) => p.id !== item.id));
-                  // if details modal open for same id, close it
-                  if (selectedTask?.id === item.id) {
-                    setDetailsModalVisible(false);
-                    setSelectedTask(null);
-                  }
-                } catch (e: any) {
-                  setError("Firestore silme hatası: " + (e?.message || e?.code || "bilinmeyen"));
-                }
-              },
-            },
-          ])
+    if (sortMode === "date") {
+      // dueAt olanlar önce; en yakın tarih (küçük timestamp) üstte -> ascending
+      list.sort((a, b) => {
+        const aHas = !!a.dueAt;
+        const bHas = !!b.dueAt;
+        if (aHas && bHas) {
+          const aKey = timeOf(a.dueAt);
+          const bKey = timeOf(b.dueAt);
+          if (aKey !== bKey) return aKey - bKey; // küçük (yakın) önce
+          // if equal dueAt, fallback createdAt desc
+          return timeOf(b.createdAt) - timeOf(a.createdAt);
         }
-      >
-        <Text style={{ color: "#fff" }}>Sil</Text>
-      </RectButton>
-    );
+        if (aHas && !bHas) return -1; // a önce
+        if (!aHas && bHas) return 1; // b önce
+        // neither have dueAt -> createdAt desc
+        return timeOf(b.createdAt) - timeOf(a.createdAt);
+      });
+    } else {
+      // priority: high > medium > low ; tie -> createdAt desc
+      const prioVal = (p: string) => (p === "high" ? 3 : p === "medium" ? 2 : 1);
+      list.sort((a, b) => {
+        const pv = prioVal(b.priority as string) - prioVal(a.priority as string);
+        if (pv !== 0) return pv;
+        return timeOf(b.createdAt) - timeOf(a.createdAt);
+      });
+    }
+
+    return list;
+  };
+
+  const visible = getVisibleTasks();
+
+  const formatDateTurkish = (d: any) => {
+    if (!d) return "";
+    let dateObj: Date;
+    if (d?.toDate && typeof d.toDate === "function") dateObj = d.toDate();
+    else if (typeof d === "number") dateObj = new Date(d);
+    else if (d instanceof Date) dateObj = d;
+    else return "";
+    return dateObj.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
   };
 
   return (
-    <Screen style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="h1">Tüm Görevler</Text>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ marginRight: 12 }}>
-            <Text style={{ marginRight: 12 }}>
-              {counts.total} / {counts.active} aktif
-            </Text>
-            <Text>{counts.completed} tamamlandı</Text>
+    <Screen>
+      <View style={styles.container}>
+        <Text variant="h2" style={{ marginBottom: 12 }}>Görevlerim</Text>
+
+        {/* Filters & Sorting */}
+        <View style={styles.controlsRow}>
+          <View style={styles.chipsRow}>
+            <TouchableOpacity style={[styles.chip, activeFilter === "all" && styles.chipActive]} onPress={() => setActiveFilter("all")}>
+              <Text style={activeFilter === "all" ? styles.chipTextActive : styles.chipText}>Hepsi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, activeFilter === "active" && styles.chipActive]} onPress={() => setActiveFilter("active")}>
+              <Text style={activeFilter === "active" ? styles.chipTextActive : styles.chipText}>Aktif</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, activeFilter === "completed" && styles.chipActive]} onPress={() => setActiveFilter("completed")}>
+              <Text style={activeFilter === "completed" ? styles.chipTextActive : styles.chipText}>Tamamlanan</Text>
+            </TouchableOpacity>
           </View>
-          <Pressable onPress={onCleanDuplicates} style={{ padding: 8 }}>
-            <Text variant="muted">Temizle (Duplicate)</Text>
-          </Pressable>
+
+          <View style={styles.sortRow}>
+            <TouchableOpacity style={[styles.sortBtn, sortMode === "date" && styles.sortBtnActive]} onPress={() => setSortMode("date")}>
+              <Text style={sortMode === "date" ? styles.sortTextActive : styles.sortText}>Tarihe göre</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sortBtn, sortMode === "priority" && styles.sortBtnActive]} onPress={() => setSortMode("priority")}>
+              <Text style={sortMode === "priority" ? styles.sortTextActive : styles.sortText}>Önceliğe göre</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {error ? (
-        <View style={styles.error}>
-          <Text variant="muted" style={{ color: "#b91c1c" }}>
-            {error}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.tabs}>
-        <Pressable onPress={() => setFilter("tumu")}>
-          <Text variant={filter === "tumu" ? "h2" : "muted"}>Tümü</Text>
-        </Pressable>
-        <Pressable onPress={() => setFilter("aktif")} style={{ marginLeft: 12 }}>
-          <Text variant={filter === "aktif" ? "h2" : "muted"}>Aktif</Text>
-        </Pressable>
-        <Pressable onPress={() => setFilter("tamamlanan")} style={{ marginLeft: 12 }}>
-          <Text variant={filter === "tamamlanan" ? "h2" : "muted"}>Tamamlanan</Text>
-        </Pressable>
-      </View>
-
-      <FlatList
-        style={{ marginTop: 12 }}
-        data={filtered}
-        keyExtractor={(i) => i.id || i.title}
-        renderItem={({ item }) => (
-          <Swipeable
-            renderLeftActions={(progress, dragX) => renderLeftActions(progress, dragX, item)}
-            renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
-          >
-            <Pressable onPress={() => openTaskModal(item)} style={styles.taskRow}>
-              <Pressable onPress={() => toggleComplete(item)} style={styles.checkbox}>
-                <Text>{item.completed ? "☑️" : "⬜️"}</Text>
-              </Pressable>
-              <View style={{ flex: 1 }}>
-                <Text variant="h2">{item.title}</Text>
-                <Text variant="muted">
-                  {item.categoryName} • {item.priority}
-                </Text>
-              </View>
-            </Pressable>
-          </Swipeable>
-        )}
-      />
-
-      <Pressable style={styles.fab} onPress={() => setModalOpen(true)}>
-        <Text style={{ fontSize: 20, color: "#fff" }}>+</Text>
-      </Pressable>
-
-      <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={styles.modalWrap}>
-          <View style={styles.modal}>
-            <Text variant="h2">Yeni Görev</Text>
-            <TextInput placeholder="Başlık" value={title} onChangeText={setTitle} style={styles.input} />
-            <TextInput placeholder="Açıklama" value={description} onChangeText={setDescription} style={styles.input} />
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              Kategori
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
-              {CATEGORIES.map((c) => (
-                <Pressable
-                  key={c.name}
-                  onPress={() => setCategory(c)}
-                  style={[styles.cat, { backgroundColor: category.name === c.name ? "#eee" : "#fff" }]}
-                >
-                  <Text>{c.name}</Text>
+        {/* Input moved to Modal. FAB opens the modal */}
+        
+        {/* Modal for adding task */}
+        <Modal visible={isAddOpen} animationType="slide" transparent>
+          <TouchableOpacity activeOpacity={1} style={styles.modalOverlay} onPress={() => setIsAddOpen(false)}>
+            <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+              <View style={styles.modalHeader}>
+                <Text variant="h3">Görev ekle</Text>
+                <Pressable onPress={() => setIsAddOpen(false)} style={styles.modalClose}>
+                  <Text variant="muted">Kapat</Text>
                 </Pressable>
-              ))}
-            </View>
+              </View>
 
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              Öncelik
-            </Text>
-            <View style={{ flexDirection: "row", marginTop: 8 }}>
-              <Pressable onPress={() => setPriority("low")} style={[styles.prio, priority === "low" && styles.prioActive]}>
-                <Text>Low</Text>
-              </Pressable>
-              <Pressable onPress={() => setPriority("medium")} style={[styles.prio, priority === "medium" && styles.prioActive]}>
-                <Text>Medium</Text>
-              </Pressable>
-              <Pressable onPress={() => setPriority("high")} style={[styles.prio, priority === "high" && styles.prioActive]}>
-                <Text>High</Text>
-              </Pressable>
-            </View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.label}>Görev başlığı</Text>
+                <Input placeholder="Başlık girin" value={title} onChangeText={setTitle} />
 
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              Tarih (YYYY-MM-DD)
-            </Text>
-            <TextInput placeholder="2026-01-01" value={dateStr} onChangeText={setDateStr} style={styles.input} />
-            <Text variant="muted" style={{ marginTop: 8 }}>
-              Saat (HH:mm)
-            </Text>
-            <TextInput placeholder="09:30" value={timeStr} onChangeText={setTimeStr} style={styles.input} />
+                <Text style={[styles.label, { marginTop: 10 }]}>Açıklama (opsiyonel)</Text>
+                <Input placeholder="Açıklama..." value={description} onChangeText={setDescription} multiline style={{ height: 80 }} />
 
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12 }}>
-              <Button title="İptal" onPress={() => setModalOpen(false)} />
-              <Button title="Kaydet" onPress={onSave} />
-            </View>
-          </View>
-        </View>
-      </Modal>
+                <Text style={[styles.label, { marginTop: 10 }]}>Öncelik</Text>
+                <View style={styles.priorityRow}>
+                  <TouchableOpacity onPress={() => setPriority("low")} style={[styles.priorityChip, priority === "low" && styles.priorityChipActive]}>
+                    <Text style={priority === "low" ? styles.priorityTextActive : styles.priorityText}>Düşük</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPriority("medium")} style={[styles.priorityChip, priority === "medium" && styles.priorityChipActive]}>
+                    <Text style={priority === "medium" ? styles.priorityTextActive : styles.priorityText}>Orta</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPriority("high")} style={[styles.priorityChip, priority === "high" && styles.priorityChipActive]}>
+                    <Text style={priority === "high" ? styles.priorityTextActive : styles.priorityText}>Yüksek</Text>
+                  </TouchableOpacity>
+                </View>
 
-      <Modal visible={detailsModalVisible} animationType="slide" transparent>
-        <View style={styles.modalWrap}>
-          <View style={styles.modal}>
-            {!editMode ? (
-              <>
-                <Text variant="h2">{selectedTask?.title}</Text>
-                <Text variant="muted" style={{ marginTop: 8 }}>
-                  {selectedTask?.description}
-                </Text>
-                <Text variant="muted" style={{ marginTop: 8 }}>
-                  {selectedTask?.categoryName} • {selectedTask?.priority}
-                </Text>
-                <Text variant="muted" style={{ marginTop: 8 }}>
-                  {selectedTask?.dueAt ? (selectedTask.dueAt as any).toDate().toLocaleString() : "Tarih yok"}
-                </Text>
-                <Text variant="muted" style={{ marginTop: 8 }}>
-                  Oluşturuldu: {(selectedTask?.createdAt as any)?.toDate ? (selectedTask?.createdAt as any).toDate().toLocaleString() : "-"}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
+                  <Button title={dueDate ? `Tarih: ${formatDateTurkish(dueDate)}` : "Tarih seç (opsiyonel)"} onPress={() => setShowDatePicker(true)} />
+                  {dueDate ? (
+                    <Pressable onPress={() => setDueDate(null)} style={{ marginLeft: 8 }}>
+                      <Text variant="muted">Temizle</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
 
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12 }}>
-                  <Button title="Düzenle" onPress={() => setEditMode(true)} disabled={editSaving || deleteProcessing} />
-                  <Button title="Sil" onPress={onDeleteTask} disabled={editSaving || deleteProcessing} />
-                  <Button
-                    title="Kapat"
-                    onPress={() => {
-                      setDetailsModalVisible(false);
-                      setSelectedTask(null);
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={dueDate || new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, d) => {
+                      setShowDatePicker(false);
+                      if (d) setDueDate(d);
                     }}
-                    disabled={editSaving || deleteProcessing}
+                  />
+                )}
+
+                <View style={{ marginTop: 12 }}>
+                  <Button
+                    title={title.trim() ? "Ekle" : "Ekle (başlık gerekli)"}
+                    onPress={async () => {
+                      await onAdd();
+                      setIsAddOpen(false);
+                    }}
+                    disabled={!title.trim() || loading}
                   />
                 </View>
-              </>
-            ) : (
-              <>
-                <TextInput placeholder="Başlık" value={eTitle} onChangeText={setETitle} style={styles.input} />
-                <TextInput placeholder="Açıklama" value={eDescription} onChangeText={setEDescription} style={styles.input} />
-                <View style={{ flexDirection: "row", marginTop: 8 }}>
-                  {CATEGORIES.map((c) => (
-                    <Pressable
-                      key={c.name}
-                      onPress={() => setECategory(c)}
-                      style={[styles.cat, { backgroundColor: eCategory.name === c.name ? "#eee" : "#fff" }]}
-                    >
-                      <Text>{c.name}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={{ flexDirection: "row", marginTop: 8 }}>
-                  <Pressable onPress={() => setEPriority("low")} style={[styles.prio, ePriority === "low" && styles.prioActive]}>
-                    <Text>Low</Text>
-                  </Pressable>
-                  <Pressable onPress={() => setEPriority("medium")} style={[styles.prio, ePriority === "medium" && styles.prioActive]}>
-                    <Text>Medium</Text>
-                  </Pressable>
-                  <Pressable onPress={() => setEPriority("high")} style={[styles.prio, ePriority === "high" && styles.prioActive]}>
-                    <Text>High</Text>
-                  </Pressable>
-                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+        
+        {/* Error */}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                <TextInput placeholder="Tarih (YYYY-MM-DD)" value={eDateStr} onChangeText={setEDateStr} style={styles.input} />
-                <TextInput placeholder="Saat (HH:mm)" value={eTimeStr} onChangeText={setETimeStr} style={styles.input} />
-
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12 }}>
-                  <Button title="İptal" onPress={() => setEditMode(false)} disabled={editSaving} />
-                  <Button title={editSaving ? "Kaydediliyor..." : "Kaydet"} onPress={onSaveEdit} disabled={editSaving} />
-                </View>
-              </>
-            )}
+        {/* List */}
+        {tasks.length === 0 ? (
+          <View style={styles.empty}>
+            <Text>Henüz görev yok. İlk görevini ekle!</Text>
           </View>
-        </View>
-      </Modal>
+        ) : (
+          <FlatList
+            data={visible}
+            keyExtractor={(t) => t.id}
+            style={{ marginTop: 12 }}
+            contentContainerStyle={{ paddingBottom: 140 }}
+            renderItem={({ item }) => (
+              <View style={[styles.taskCard, item.completed && styles.taskCardDone]}>
+                <View style={styles.taskLeft}>
+                  <Pressable onPress={() => onToggle(item)} style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+                    <Text style={{ color: item.completed ? "#fff" : "#111" }}>{item.completed ? "✓" : ""}</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.taskCenter}>
+                  <Text style={[styles.taskTitle, item.completed && styles.titleDone]}>{item.title}</Text>
+                  {item.description ? <Text variant="muted" style={styles.taskDesc}>{item.description}</Text> : null}
+                  <Text variant="muted" style={styles.taskDate}>
+                    {item.dueAt ? `Son tarih: ${formatDateTurkish(item.dueAt)}` : item.createdAt ? `Oluşturuldu: ${formatDateTurkish(item.createdAt)}` : ""}
+                  </Text>
+                </View>
+
+                <View style={styles.taskRight}>
+                  <View style={[styles.priorityBadge, item.priority === "high" ? styles.high : item.priority === "medium" ? styles.medium : styles.low]}>
+                    <Text style={styles.priorityBadgeText}>{item.priority === "high" ? "Yüksek" : item.priority === "medium" ? "Orta" : "Düşük"}</Text>
+                  </View>
+                  <Pressable onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
+                    <Text style={{ color: "#ef4444" }}>Sil</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          />
+        )}
+
+        {/* Loading */}
+        {loading && <Text style={{ marginTop: 8 }}>Görevler yükleniyor...</Text>}
+
+        {/* FAB - root container içinde, LIST'in DIŞINDA (sabit, floating) */}
+        <Pressable
+          style={[styles.fab, { bottom: (insets.bottom || 0) + 96 }]}
+          onPress={() => {
+            setIsAddOpen(true);
+          }}
+        >
+          <Text style={styles.fabIcon}>+</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 };
 
 const styles = StyleSheet.create({
   container: { padding: 16 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  tabs: { flexDirection: "row", marginTop: 12 },
-  taskRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
-  checkbox: { width: 36 },
+  controlsRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap" },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    marginRight: 6,
+    marginBottom: 6,
+    minHeight: 36,
+  },
+  chipActive: { backgroundColor: "#6C5CE7" },
+  chipText: { color: "#111", fontSize: 14 },
+  chipTextActive: { color: "#fff", fontSize: 14 },
+
+  sortRow: { flexDirection: "row" },
+  sortBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#e5e7eb", marginLeft: 8, minHeight: 36 },
+  sortBtnActive: { backgroundColor: "#6C5CE7" },
+  sortText: { color: "#111", fontSize: 14 },
+  sortTextActive: { color: "#fff", fontSize: 14 },
+
+  card: { backgroundColor: "#fff", padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: "#eee" },
+  label: { fontSize: 13, color: "#6b7280", marginBottom: 6 },
+
+  priorityRow: { flexDirection: "row", marginTop: 6 },
+  priorityChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", marginRight: 8 },
+  priorityChipActive: { backgroundColor: "#6C5CE7" },
+  priorityText: { color: "#111" },
+  priorityTextActive: { color: "#fff" },
+
+  errorText: { color: "#ef4444", marginTop: 8 },
+
+  empty: { padding: 24, alignItems: "center" },
+
+  taskCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", padding: 12, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: "#eee" },
+  taskCardDone: { opacity: 0.5 },
+  taskLeft: { marginRight: 12 },
+  checkbox: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center" },
+  checkboxChecked: { backgroundColor: "#6C5CE7", borderColor: "#6C5CE7" },
+
+  taskCenter: { flex: 1 },
+  taskTitle: { fontSize: 16, fontWeight: "600", color: "#111" },
+  titleDone: { textDecorationLine: "line-through", color: "#888" },
+  taskDesc: { fontSize: 13, color: "#6b7280", marginTop: 4 },
+  taskDate: { fontSize: 12, color: "#9ca3af", marginTop: 6 },
+
+  taskRight: { alignItems: "flex-end", marginLeft: 12 },
+  priorityBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 8 },
+  priorityBadgeText: { color: "#fff", fontSize: 12 },
+  high: { backgroundColor: "#ef4444" },
+  medium: { backgroundColor: "#f59e0b" },
+  low: { backgroundColor: "#10b981" },
+
+  deleteBtn: { paddingHorizontal: 6 },
+
+  inputRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+
+  list: { marginTop: 8 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 720,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  modalClose: { padding: 8 },
   fab: {
     position: "absolute",
-    right: 16,
-    bottom: 24,
+    right: 20,
+    bottom: 90,
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 999,
     backgroundColor: "#6C5CE7",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 10,
+    zIndex: 999,
   },
-  modalWrap: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", padding: 16 },
-  modal: { backgroundColor: "#fff", borderRadius: 12, padding: 16 },
-  input: { borderRadius: 8, backgroundColor: "#f3f4f6", padding: 8, marginTop: 8 },
-  cat: { padding: 8, borderRadius: 8, marginRight: 8, marginBottom: 8 },
-  prio: { padding: 8, borderRadius: 8, marginRight: 8 },
-  prioActive: { backgroundColor: "#eee" },
-  error: { paddingVertical: 8 },
-});
-
-const actionStyles = StyleSheet.create({
-  leftAction: { backgroundColor: "#0ea5e9", justifyContent: "center", alignItems: "center", width: 80 },
-  rightAction: { backgroundColor: "#ef4444", justifyContent: "center", alignItems: "center", width: 80 },
+  fabIcon: { color: "#fff", fontSize: 28, lineHeight: 28 },
 });

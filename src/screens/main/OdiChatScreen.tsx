@@ -12,294 +12,148 @@ import {
   Alert,
 } from "react-native";
 import { Text } from "../../ui/Text";
-import { auth, db } from "../../firebase/firebase";
-import {
-  doc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-  getDoc,
-  arrayUnion,
-  serverTimestamp,
-} from "firebase/firestore";
+
+type Msg = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  text: string;
+  createdAt: number;
+};
 
 export const OdiChatScreen: React.FC = () => {
-  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loadingSend, setLoadingSend] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const listRef = useRef<FlatList<any> | null>(null);
 
+  // ilk sistem mesajı
   useEffect(() => {
-    const unsubAuth = auth.onAuthStateChanged((u) => setUid(u?.uid || null));
-    return () => unsubAuth();
+    const sys: Msg = {
+      id: `sys_${Date.now().toString(36)}`,
+      role: "assistant",
+      text: "Merhaba Simge! Bugün nasıl yardımcı olayım?",
+      createdAt: Date.now(),
+    };
+    setMessages([sys]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
   }, []);
 
+  // scroll to end on messages change
   useEffect(() => {
-    if (!uid) {
-      setMessages([]);
-      return;
-    }
-    setError(null);
-    const docRef = doc(db, "aiChats", uid);
-    const unsub = onSnapshot(
-      docRef,
-      (snap) => {
-        if (!snap.exists()) {
-          setMessages([]);
-          return;
-        }
-        const data = snap.data() as any;
-        const arr = Array.isArray(data.messages) ? data.messages.map((m: any) => {
-          // createdAt might be a number (Date.now()) or a Firestore Timestamp
-          const created =
-            typeof m.createdAt === "number"
-              ? new Date(m.createdAt)
-              : m?.createdAt && typeof m.createdAt.toDate === "function"
-              ? m.createdAt.toDate()
-              : m?.createdAt
-              ? new Date(m.createdAt)
-              : null;
-          return { ...m, createdAt: created };
-        }) : [];
-        setMessages(arr);
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-      },
-      (e) => {
-        setError("Mesaj okuma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-      }
-    );
-    return () => unsub();
-  }, [uid]);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
+  }, [messages]);
 
-  // AI çağrısı yapacak yardımcı fonksiyon (timeout ve log)
-  const callAi = async (userText: string): Promise<string> => {
-    const apiUrl = process.env.EXPO_PUBLIC_ODI_AI_URL || process.env.ODI_AI_URL || "";
-    const apiKey = process.env.EXPO_PUBLIC_ODI_AI_KEY || process.env.ODI_AI_KEY || "";
-    const funcName = process.env.EXPO_PUBLIC_ODI_AI_FN || process.env.ODI_AI_FN || "";
-    console.log("[ODI] AI config", { apiUrl, apiKey: apiKey ? "***" : "", funcName });
+  const suggestions = [
+    { label: "Gün planı yap", text: "Bugün için 3 maddelik net bir plan çıkarır mısın? (ders/ödev/odak)" },
+    { label: "Motivasyon ver", text: "Kısa bir motivasyon mesajı ver ve 1 küçük hedef öner." },
+    { label: "Görev öner", text: "Bugün yapabileceğim 5 görev öner (kısa ve uygulanabilir)." },
+  ];
 
-    if (!apiUrl) {
-      console.log("[ODI] AI call skipped - no apiUrl configured");
-      throw new Error("No AI endpoint configured");
-    }
+  const keyExtractor = (i: any) => i.id;
 
-    console.log("[ODI] AI call start");
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, 3000);
-
-    try {
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        },
-        body: JSON.stringify({ text: userText, function: funcName }),
-      });
-      clearTimeout(timeout);
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(`AI error ${res.status}: ${t}`);
-      }
-      const data = await res.json();
-      // try common response shapes
-      const responseText = data?.text || data?.reply || data?.message || (typeof data === "string" ? data : "");
-      console.log("[ODI] AI call success", (responseText || "").slice(0, 80));
-      return responseText || "";
-    } catch (e: any) {
-      clearTimeout(timeout);
-      console.log("[ODI] AI call error", e?.message || e);
-      throw e;
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!uid) {
-      setError("Giriş gerekli.");
-      return;
-    }
-    const text = input.trim();
+  const sendMessage = async (presetText?: string) => {
+    const raw = typeof presetText === "string" ? presetText : input;
+    const text = String(raw || "").trim();
     if (!text) return;
-    setError(null);
     setLoadingSend(true);
-    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    // createdAt MUST be a number (Date.now()) for arrayUnion
-    const userMsg = { id, role: "user", text, createdAt: Date.now() };
-    // optimistic UI
+
+    const userMsg: Msg = { id: `u_${Date.now().toString(36)}`, role: "user", text, createdAt: Date.now() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
 
-    const docRef = doc(db, "aiChats", uid);
-    try {
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) {
-        await setDoc(docRef, {
-          userId: uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          messages: [userMsg],
-        });
-      } else {
-        await updateDoc(docRef, {
-          updatedAt: serverTimestamp(),
-          messages: arrayUnion(userMsg),
-        });
-      }
-
-      // attempt AI call, fallback to rule-based if fail or timeout
-      try {
-        const aiText = await (async () => {
-          try {
-            // try to call AI
-            return await callAi(text);
-          } catch (e) {
-            // log fallback and return empty to trigger rule fallback
-            console.log("[ODI] fallback used (timeout or error)");
-            return "";
-          }
-        })();
-
-        let assistantText = aiText;
-        if (!assistantText) {
-          // rule-based fallback
-          const lower = text.toLowerCase();
-          if (lower.includes("ödev")) {
-            assistantText =
-              "Tamam. Ödevini yetiştirmek için 10 dakikalık bir plan yapalım: 1) Konuyu gözden geçir 2) Öncelikli parçaları not al 3) Hemen bir mini görev başlat.";
-          } else {
-            assistantText = "Anladım. Şu an en önemli hedefin ne?";
-          }
-        }
-
-        // create assistant message and write to firestore
-        const assistantId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}_assistant`;
-        const assistantMsg = { id: assistantId, role: "assistant", text: assistantText, createdAt: Date.now() };
-
-        try {
-          const snap2 = await getDoc(docRef);
-          if (!snap2.exists()) {
-            await setDoc(docRef, {
-              userId: uid,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              messages: [assistantMsg],
-            });
-          } else {
-            await updateDoc(docRef, {
-              updatedAt: serverTimestamp(),
-              messages: arrayUnion(assistantMsg),
-            });
-          }
-        } catch (e: any) {
-          console.log("[ODI] AI call error writing assistant msg", e?.message || e);
-          setError("Asistan cevabı gönderilemedi: " + (e?.message || e?.code || "bilinmeyen"));
-        }
-      } catch (inner) {
-        console.log("[ODI] fallback used (timeout or error)");
-        // already handled above
-      }
-    } catch (e: any) {
-      // revert optimistic
-      setMessages((prev) => prev.filter((m) => m.id !== id));
-      setInput(text);
-      setError("Mesaj göndermede hata: " + (e?.message || e?.code || "bilinmeyen"));
-    } finally {
+    // sahte Odi cevabı (mock)
+    setTimeout(() => {
+      const replyText =
+        presetText ??
+        (text.length > 80
+          ? "Güzel, bunu adım adım yapmanı öneririm. İstersen bir plan hazırlayayım."
+          : `Tamam: "${text}" — üzerine kısa bir cevap hazırlıyorum.`);
+      const odiMsg: Msg = { id: `odi_${Date.now().toString(36)}`, role: "assistant", text: replyText, createdAt: Date.now() };
+      setMessages((prev) => [...prev, odiMsg]);
       setLoadingSend(false);
-    }
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
+    }, 400);
   };
 
-  // helper: güvenli zaman formatlayıcı
-  const formatTime = (createdAt: any): string => {
-    if (!createdAt) return "";
-    try {
-      if (typeof createdAt === "number") {
-        return new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-      if (createdAt?.toDate && typeof createdAt.toDate === "function") {
-        return createdAt.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-      if (createdAt instanceof Date) {
-        return createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-    } catch {
-      // ignore
-    }
-    return "";
-  };
-
-  const renderItem = ({ item }: { item: any }) => {
-    const isUser = item.role === "user" || item.userId === uid;
+  const renderItem = ({ item }: { item: Msg }) => {
+    const isUser = item.role === "user";
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
+          {!isUser ? <Text variant="caption" style={styles.assistantLabel}>Odi (Geçici)</Text> : null}
           <Text style={isUser ? styles.msgTextUser : styles.msgTextAssistant}>{item.text}</Text>
-          {item.createdAt ? <Text variant="caption" style={styles.ts}>{formatTime(item.createdAt)}</Text> : null}
+          {/* ts */}
+          <Text variant="caption" style={styles.ts}>
+            {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </Text>
         </View>
       </View>
     );
   };
 
-  const onDismissError = () => setError(null);
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text variant="h2">Odi Koçu</Text>
-        <Pressable
-          onPress={() => {
-            Alert.alert("Geçmiş", "Geçmişe bak (henüz yok)");
-          }}
-          style={styles.historyBtn}
-        >
-          <Text>Geçmiş</Text>
-        </Pressable>
-      </View>
-
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text variant="muted" style={{ color: "#fff", flex: 1 }}>
-            {error}
-          </Text>
-          <Pressable onPress={onDismissError} style={{ paddingHorizontal: 8 }}>
-            <Text style={{ color: "#fff" }}>Kapat</Text>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text variant="h2">Odi Koçu</Text>
+          <Pressable
+            onPress={() => {
+              Alert.alert("Geçmiş", "Geçmişe bak (henüz yok)");
+            }}
+            style={styles.historyBtn}
+          >
+            <Text>Geçmiş</Text>
           </Pressable>
         </View>
-      ) : null}
 
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(i) => i.id || String(Math.random())}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => listRef.current?.scrollToEnd({ animated: true })}
-      />
+        <View style={styles.startCardContainer}>
+          <View style={styles.suggestionRow}>
+            {suggestions.map((s) => (
+              <Pressable
+                key={s.label}
+                style={styles.suggestionChip}
+                onPress={() => {
+                  // chip'e basınca kullanıcı mesajı olarak ekle ve otomatik gönder
+                  sendMessage(s.text);
+                }}
+              >
+                <Text>{s.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 16 }}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        />
+
         <View style={styles.inputRow}>
           <TextInput
             placeholder="Mesaj yaz..."
+            placeholderTextColor="#999"
             value={input}
             onChangeText={setInput}
             style={styles.input}
             multiline
+            blurOnSubmit={false}
           />
           <Pressable
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
             style={[styles.sendBtn, (loadingSend || !input.trim()) && styles.sendBtnDisabled]}
             disabled={loadingSend || !input.trim()}
           >
             {loadingSend ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff" }}>Gönder</Text>}
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -316,8 +170,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   historyBtn: { padding: 8 },
-  errorBanner: { backgroundColor: "#b91c1c", padding: 8, flexDirection: "row", alignItems: "center" },
-  listContent: { padding: 12, paddingBottom: 100 },
+
+  startCardContainer: {
+    padding: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  suggestionRow: { flexDirection: "row", marginTop: 6, flexWrap: "wrap" },
+  suggestionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "#EEF0F6",
+    marginHorizontal: 6,
+    marginBottom: 6,
+  },
+
+  listContent: { padding: 12, paddingBottom: 120 },
+
   msgRow: { marginVertical: 6 },
   msgRowUser: { alignItems: "flex-end" },
   msgRowAssistant: { alignItems: "flex-start" },
@@ -331,18 +202,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#6C5CE7",
   },
   bubbleAssistant: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#eee",
+    backgroundColor: "#f3f4f6",
   },
+  assistantLabel: { fontSize: 12, color: "#6b7280", marginBottom: 6 },
   msgTextUser: { color: "#fff" },
   msgTextAssistant: { color: "#111" },
   ts: { fontSize: 10, color: "#666", marginTop: 6 },
+
   inputRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     padding: 8,
     flexDirection: "row",
     alignItems: "center",

@@ -76,6 +76,12 @@ export const HomeScreen: React.FC = () => {
     };
   }, [uid]);
 
+  const priorityLabel = (p?: string) => {
+    if (p === "high") return "Yüksek";
+    if (p === "low") return "Düşük";
+    return "Orta";
+  };
+
   const filtered = tasks.filter((t) => {
     if (filter === "all") return true;
     if (filter === "high") return t.priority === "high";
@@ -107,13 +113,13 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       {/* Section label */}
-      <Text style={[theme.textStyles.caption, { color: theme.colors.muted, marginTop: theme.spacing.s16 }]}>Gündemde</Text>
+      <Text style={[theme.textStyles.caption, { color: theme.colors.muted, marginTop: theme.spacing.s16 }]}>Gündemdeki görevler</Text>
 
       {/* Chips */}
       <View style={styles.chipsRow}>
         <Chip label="Tümü" active={filter === "all"} onPress={() => setFilter("all")} style={{ marginRight: theme.spacing.s8 }} />
         <Chip label="Bugün" active={filter === "today"} onPress={() => setFilter("today")} style={{ marginRight: theme.spacing.s8 }} />
-        <Chip label="Yüksek Öncelik" active={filter === "high"} onPress={() => setFilter("high")} />
+        <Chip label="Yüksek" active={filter === "high"} onPress={() => setFilter("high")} />
       </View>
 
       {/* List */}
@@ -134,7 +140,7 @@ export const HomeScreen: React.FC = () => {
                   <View style={{ flex: 1, paddingRight: theme.spacing.s12 }}>
                     <Text style={[theme.textStyles.h2, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
                     <Text style={[theme.textStyles.body, { color: theme.colors.muted, marginTop: theme.spacing.s8 }]}>
-                      {item.categoryName} • {item.priority}
+                      {item.categoryName} • {priorityLabel(item.priority)}
                     </Text>
                   </View>
                   <View>

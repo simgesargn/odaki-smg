@@ -1,18 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, StyleSheet, Pressable, Dimensions, ScrollView } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
-import { Card } from "../../ui/Card";
+import { theme } from "../../ui/theme";
 import { auth, db } from "../../firebase/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
+
+type SessionDoc = {
+  userId: string;
+  durationSec?: number;
+  status?: string;
+  startedAt?: any;
+  endedAt?: any;
+  createdAt?: any;
+  id?: string;
+};
+
+type TaskDoc = {
+  userId: string;
+  completed?: boolean;
+  status?: string;
+  completedAt?: any;
+  updatedAt?: any;
+  createdAt?: any;
+  id?: string;
+};
+
+const { width } = Dimensions.get("window");
 
 export const StatsScreen: React.FC = () => {
-  const [seg, setSeg] = useState<"gün" | "hafta" | "ay">("gün");
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
-  const [focusSessions, setFocusSessions] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionDoc[]>([]);
+  const [tasks, setTasks] = useState<TaskDoc[]>([]);
+  const [tab, setTab] = useState<"today" | "weekly" | "monthly">("today");
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => setUid(u?.uid || null));
@@ -21,96 +42,159 @@ export const StatsScreen: React.FC = () => {
 
   useEffect(() => {
     if (!uid) {
-      setFocusSessions([]);
+      setSessions([]);
       setTasks([]);
       return;
     }
-    const qF = query(collection(db, "focusSessions"), where("userId", "==", uid));
-    const unsubF = onSnapshot(
-      qF,
+
+    const qS = query(collection(db, "focusSessions"), where("userId", "==", uid));
+    const unsubS = onSnapshot(
+      qS,
       (snap) => {
-        const arr: any[] = [];
-        snap.forEach((d) => arr.push({ id: d.id, ...(d.data() as any) }));
-        setFocusSessions(arr);
+        const items: SessionDoc[] = [];
+        snap.forEach((d) => items.push({ ...(d.data() as any), id: d.id }));
+        setSessions(items);
       },
-      (e: any) => {
-        setError("Firestore okuma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-        setFocusSessions([]);
-      }
+      () => setSessions([])
     );
 
     const qT = query(collection(db, "tasks"), where("userId", "==", uid));
     const unsubT = onSnapshot(
       qT,
       (snap) => {
-        const arr: any[] = [];
-        snap.forEach((d) => arr.push({ id: d.id, ...(d.data() as any) }));
-        setTasks(arr);
+        const items: TaskDoc[] = [];
+        snap.forEach((d) => items.push({ ...(d.data() as any), id: d.id }));
+        setTasks(items);
       },
-      (e: any) => {
-        setError("Firestore okuma hatası: " + (e?.message || e?.code || "bilinmeyen"));
-        setTasks([]);
-      }
+      () => setTasks([])
     );
 
     return () => {
-      unsubF();
+      unsubS();
       unsubT();
     };
   }, [uid]);
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const within = (d: any, start: Date) => {
-    if (!d) return false;
-    const date = d.toDate ? d.toDate() : d instanceof Date ? d : null;
-    if (!date) return false;
-    return date >= start;
+  // Helper: parse firestore timestamp-like to Date
+  const toDate = (v: any): Date | null => {
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    if (typeof v === "number") return new Date(v);
+    if (v?.toDate && typeof v.toDate === "function") return v.toDate();
+    try {
+      return new Date(v);
+    } catch {
+      return null;
+    }
   };
 
-  const computeForRange = (start: Date) => {
-    const sessions = focusSessions.filter((s) => s.status === "completed" && within(s.endedAt, start));
-    const totalMinutes = sessions.reduce((acc, s) => acc + (s.durationMinutes || 0), 0);
-    const completedSessions = sessions.length;
-    const completedTasks = tasks.filter((t) => t.completed && within(t.createdAt || t.updatedAt || t.createdAt, start)).length;
-    return { totalMinutes, completedSessions, completedTasks };
+  // Sabit dummy metrikler (istenen değerler)
+  const dummyStats = {
+    today: { totalMinutes: 0, completedSessions: 0, completedTasks: 2 },
+    weekly: { totalMinutes: 120, completedSessions: 5, completedTasks: 12 },
+    monthly: { totalMinutes: 540, completedSessions: 18, completedTasks: 44 },
   };
 
-  const rangeStart = seg === "gün" ? startOfToday : seg === "hafta" ? startOfWeek : startOfMonth;
-  const { totalMinutes, completedSessions, completedTasks } = computeForRange(rangeStart);
+  const currentMetrics = tab === "today" ? dummyStats.today : tab === "weekly" ? dummyStats.weekly : dummyStats.monthly;
 
-  const empty = totalMinutes === 0 && completedSessions === 0 && completedTasks === 0;
+  if (!uid) {
+    return (
+      <Screen>
+        <View style={{ padding: 16 }}>
+          <Text variant="h2">İstatistikler</Text>
+          <Text variant="muted" style={{ marginTop: 12 }}>
+            Giriş gerekli.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
-    <Screen style={styles.container}>
-      <Text variant="h1">İstatistikler</Text>
-      <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 12 }}>
-        <Text variant={seg === "gün" ? "h2" : "muted"} onPress={() => setSeg("gün")}>Bugün</Text>
-        <Text variant={seg === "hafta" ? "h2" : "muted"} onPress={() => setSeg("hafta")}>Haftalık</Text>
-        <Text variant={seg === "ay" ? "h2" : "muted"} onPress={() => setSeg("ay")}>Aylık</Text>
+    <Screen>
+      <View style={styles.headerRow}>
+        <Text variant="h2">İstatistikler</Text>
+        <View style={styles.tabsRow}>
+          <Pressable style={[styles.tab, tab === "today" && styles.tabActive]} onPress={() => setTab("today")}>
+            <Text style={tab === "today" ? styles.tabTextActive : styles.tabText}>Bugün</Text>
+          </Pressable>
+          <Pressable style={[styles.tab, tab === "weekly" && styles.tabActive]} onPress={() => setTab("weekly")}>
+            <Text style={tab === "weekly" ? styles.tabTextActive : styles.tabText}>Haftalık</Text>
+          </Pressable>
+          <Pressable style={[styles.tab, tab === "monthly" && styles.tabActive]} onPress={() => setTab("monthly")}>
+            <Text style={tab === "monthly" ? styles.tabTextActive : styles.tabText}>Aylık</Text>
+          </Pressable>
+        </View>
       </View>
 
-      {error ? <Text variant="muted" style={{ color: "red", marginTop: 12 }}>{error}</Text> : null}
-
-      <View style={{ marginTop: 20 }}>
-        <Card>
-          {empty ? (
-            <Text variant="muted">Henüz veri yok</Text>
-          ) : (
-            <>
-              <Text variant="h2">Toplam Odak (dk): {totalMinutes}</Text>
-              <Text variant="muted" style={{ marginTop: 8 }}>Tamamlanan oturum: {completedSessions}</Text>
-              <Text variant="muted" style={{ marginTop: 8 }}>Tamamlanan görev: {completedTasks}</Text>
-            </>
-          )}
-        </Card>
-      </View>
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        {/* Tek yapı: sekmeye göre dummy metrikler gösterilir */}
+        <View style={styles.row}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Toplam Odak (dk)</Text>
+            <Text style={styles.statBig}>{currentMetrics.totalMinutes}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Tamamlanan oturum</Text>
+            <Text style={styles.statBig}>{currentMetrics.completedSessions}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Tamamlanan görev</Text>
+            <Text style={styles.statBig}>{currentMetrics.completedTasks}</Text>
+          </View>
+        </View>
+      </ScrollView>
     </Screen>
   );
 };
 
-const styles = StyleSheet.create({ container: { padding: 16 } });
+const styles = StyleSheet.create({
+  headerRow: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  tabsRow: { flexDirection: "row" },
+  tab: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginLeft: 8, backgroundColor: "transparent" },
+  tabActive: { backgroundColor: "#F3F0FF" },
+  tabText: { color: "#374151" },
+  tabTextActive: { color: "#6C5CE7", fontWeight: "700" },
+
+  row: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    marginHorizontal: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  statLabel: { fontSize: 13, color: "#6b7280", marginBottom: 6 },
+  statBig: { fontSize: 28, fontWeight: "800", color: theme.colors.text },
+
+  chartCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  chartTitle: { fontSize: 14, fontWeight: "700", marginBottom: 12, color: theme.colors.text },
+  chartRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingHorizontal: 6, height: 140 },
+  chartBarWrap: { flex: 1, alignItems: "center", marginHorizontal: 4 },
+  chartBar: { width: Math.max(8, Math.round((width - 64) / 20)), backgroundColor: theme.colors.primary, borderRadius: 6 },
+  chartLabel: { marginTop: 6, fontSize: 12, color: "#6b7280" },
+
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  summaryCard: { flex: 1, backgroundColor: "#fff", marginHorizontal: 6, borderRadius: 10, padding: 12, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  summaryLabel: { fontSize: 12, color: "#6b7280" },
+  summaryValue: { fontSize: 16, fontWeight: "700", marginTop: 6 },
+
+  // reuse existing styles for other components if needed
+});

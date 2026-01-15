@@ -46,6 +46,18 @@ service cloud.firestore {
       allow get, list: if isOwnerResource();
       allow create: if isOwnerField();
       allow update, delete: if isOwnerResource();
+
+      // ✅ messages subcollection
+      match /messages/{msgId} {
+        function parentIsOwner() {
+          return signedIn()
+            && get(/databases/$(database)/documents/aiChats/$(docId)).data.userId == request.auth.uid;
+        }
+
+        allow get, list: if parentIsOwner();
+        allow create: if parentIsOwner() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     // Optional collections
