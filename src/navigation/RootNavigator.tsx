@@ -56,22 +56,22 @@ function MainTabs() {
       <Tab.Screen
         name={Routes.Home}
         component={HomeScreen}
-        options={{ title: t("home"), tabBarLabel: t("home"), headerShown: false }}
+        options={{ title: "Ana Sayfa", tabBarLabel: "Ana Sayfa", headerShown: false }}
       />
       <Tab.Screen
         name={Routes.Tasks}
         component={TasksScreen}
-        options={{ title: t("tasks"), tabBarLabel: t("tasks") }}
+        options={{ title: "Görevler", tabBarLabel: "Görevler" }}
       />
       <Tab.Screen
         name={Routes.Focus}
         component={FocusScreen}
-        options={{ title: t("focus"), tabBarLabel: t("focus") }}
+        options={{ title: "Odak", tabBarLabel: "Odak" }}
       />
       <Tab.Screen
         name={Routes.Odi}
         component={OdiChatScreen}
-        options={{ title: t("odi"), tabBarLabel: t("odi") }}
+        options={{ title: "Odi", tabBarLabel: "Odi" }}
       />
       <Tab.Screen
         name={Routes.Friends}
@@ -81,12 +81,12 @@ function MainTabs() {
       <Tab.Screen
         name={Routes.Stats}
         component={StatsScreen}
-        options={{ title: t("stats"), tabBarLabel: t("stats") }}
+        options={{ title: "İstatistik", tabBarLabel: "İstatistik" }}
       />
       <Tab.Screen
         name={Routes.Profile}
         component={ProfileScreen}
-        options={{ title: t("profile"), tabBarLabel: t("profile") }}
+        options={{ title: "Profil", tabBarLabel: "Profil" }}
       />
     </Tab.Navigator>
   );
