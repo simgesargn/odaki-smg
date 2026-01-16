@@ -6,27 +6,26 @@ import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 
 export const MenuScreen: React.FC = () => {
+  // Tek bir hook çağrısı — (kural: hook fonksiyon içinde tekrar çağrılmasın)
   const navigation = useNavigation<any>();
-  const nav = useNavigation<any>(); // kısa isim; kesin tanımlandı
 
-  const TAB_ROUTES = new Set<string>([
-    Routes.Home,
-    Routes.Tasks,
-    Routes.Focus,
-    Routes.Odi,
-    Routes.Friends,
-    Routes.Stats,
-    Routes.Profile,
-  ]);
-
-  function handleNavigate(route: string) {
-    // doğrudan navigation (nav tanımlı)
-    if (TAB_ROUTES.has(route)) {
-      nav.navigate(Routes.MainTabs as any, { screen: route } as any);
-    } else {
-      nav.navigate(route as any);
+  const handleNavigate = (route: string, isTab?: boolean) => {
+    try {
+      if (isTab) {
+        // Tab içindeki sayfaya git (RootTabs altında ilgili screen)
+        navigation.navigate(Routes.RootTabs as any, { screen: route } as any);
+      } else {
+        // Stack ekranına doğrudan git
+        navigation.navigate(route as any);
+      }
+      // Menü modalini küçük bir gecikmeyle kapat (navigate kuyruğa alınsın)
+      setTimeout(() => {
+        if (navigation.canGoBack()) navigation.goBack();
+      }, 60);
+    } catch {
+      // ignore navigation errors to avoid crash
     }
-  }
+  };
 
   return (
     <Screen style={styles.container}>
@@ -38,12 +37,29 @@ export const MenuScreen: React.FC = () => {
       </View>
 
       <View style={styles.list}>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Notifications)}><Text>Bildirimler</Text></Pressable>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Settings)}><Text>Ayarlar</Text></Pressable>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Garden)}><Text>Bahçe</Text></Pressable>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Friends)}><Text>Arkadaşlar</Text></Pressable>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Achievements)}><Text>Başarılar</Text></Pressable>
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Premium)}><Text>Premium</Text></Pressable>
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Notifications, false)}>
+          <View style={styles.itemRow}><Text>Bildirimler</Text><Text>›</Text></View>
+        </Pressable>
+
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Settings, false)}>
+          <View style={styles.itemRow}><Text>Ayarlar</Text><Text>›</Text></View>
+        </Pressable>
+
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Garden, false)}>
+          <View style={styles.itemRow}><Text>Bahçe</Text><Text>›</Text></View>
+        </Pressable>
+
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Friends, true)}>
+          <View style={styles.itemRow}><Text>Arkadaşlar</Text><Text>›</Text></View>
+        </Pressable>
+
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Achievements, false)}>
+          <View style={styles.itemRow}><Text>Başarılar</Text><Text>›</Text></View>
+        </Pressable>
+
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Premium, false)}>
+          <View style={styles.itemRow}><Text>Premium</Text><Text>›</Text></View>
+        </Pressable>
       </View>
     </Screen>
   );
@@ -55,4 +71,5 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 8 },
   list: { marginTop: 24 },
   item: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  itemRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 });

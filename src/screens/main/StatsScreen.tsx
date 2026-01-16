@@ -171,15 +171,15 @@ export const StatsScreen: React.FC = () => {
         {/* KPI'lar */}
         <View style={styles.row}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Toplam Odak (dk)</Text>
+            <Text numberOfLines={2} style={styles.statLabel}>Toplam Odak (dk)</Text>
             <Text style={styles.statBig}>{currentMetrics.totalMinutes}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Tamamlanan oturum</Text>
+            <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan oturum</Text>
             <Text style={styles.statBig}>{currentMetrics.completedSessions}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Tamamlanan görev</Text>
+            <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan görev</Text>
             <Text style={styles.statBig}>{currentMetrics.completedTasks}</Text>
           </View>
         </View>

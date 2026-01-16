@@ -1,25 +1,45 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, StyleSheet, Pressable, FlatList } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "../../ui/Text";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 
-export const FriendsScreen = ({ navigation }: any) => {
+const SAMPLE = [
+  { id: "f1", name: "Ayşe", status: "Çevrimiçi" },
+  { id: "f2", name: "Mehmet", status: "Son aktif 2s önce" },
+  { id: "f3", name: "Ece", status: "Çevrimdışı" },
+];
+
+export function FriendsScreen() {
+  const nav = useNavigation<any>();
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}><Text style={styles.back}>Geri</Text></Pressable>
-        <Text style={styles.title}>Arkadaşlar</Text>
-        <View style={{ width: 40 }} />
+        <Text variant="h2">Arkadaşlar</Text>
+        <Pressable onPress={() => nav.navigate(Routes.Menu as any)} style={styles.addBtn}>
+          <Text>Arkadaş ekle</Text>
+        </Pressable>
       </View>
-      <ScrollView>
-        <Text style={styles.body}>Arkadaş listeniz burada.</Text>
-      </ScrollView>
-    </View>
+
+      <FlatList
+        data={SAMPLE}
+        keyExtractor={(i) => i.id}
+        contentContainerStyle={{ padding: 16 }}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Text style={{ fontWeight: "700" }}>{item.name}</Text>
+            <Text variant="muted">{item.status}</Text>
+          </View>
+        )}
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  back: { color: "#6C5CE7" },
-  title: { fontSize: 20, fontWeight: "700" },
-  body: { marginTop: 12, fontSize: 15, color: "#444" },
+  safe: { flex: 1, backgroundColor: "#fff" },
+  header: { padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  addBtn: { padding: 8 },
+  card: { backgroundColor: "#fff", padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: "#eee" },
 });

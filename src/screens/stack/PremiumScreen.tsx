@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "../../firebase/firebase";
 import { loadFocusState } from "../../focus/focusStore";
 import { getBasePrices, formatPrice, getFlowerDiscountPercent, applyDiscount, type PlanId } from "../../features/premium/premiumPricing";
+import { useNavigation } from "@react-navigation/native";
 
 const TRIAL_KEY = "premium_trial_start_v1";
 
@@ -16,6 +17,7 @@ export const PremiumScreen: React.FC = () => {
   const [student, setStudent] = useState<boolean>(false);
   const [trialStartISO, setTrialStartISO] = useState<string | null>(null);
   const [flowersCount, setFlowersCount] = useState<number>(0);
+  const nav = useNavigation<any>();
 
   useEffect(() => {
     (async () => {
@@ -80,6 +82,7 @@ export const PremiumScreen: React.FC = () => {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Pressable onPress={() => nav.goBack()} style={styles.close}><RNText>Kapat</RNText></Pressable>
         <Text variant="h2">Premium</Text>
         <Text variant="muted" style={{ marginTop: 6, marginBottom: 12 }}>
           Odaki Premium ile daha fazlası
@@ -247,4 +250,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: "#fff",
   },
+  close: { alignSelf: "flex-end", padding: 8 },
 });

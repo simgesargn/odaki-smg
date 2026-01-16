@@ -18,17 +18,60 @@ function dueToMillis(due: any): number | null {
   if (typeof due === "number") return due;
   if (due instanceof Date) return due.getTime();
   if (typeof due === "string") {
+    // try parse ISO or yyyy-mm-dd
     const n = Date.parse(due);
-    return isNaN(n) ? null : n;
+    if (!isNaN(n)) return n;
+    // fallback: try yyyy-mm-dd -> parse as local midnight
+    const m = due.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+      return new Date(y, mo, d).getTime();
+    }
+    return null;
   }
   return null;
 }
 
+// yeni yardımcı: normalize to YYYY-MM-DD local
+function toYMDKey(d: any): string | null {
+  if (!d) return null;
+  let date: Date | null = null;
+  if (d?.toDate && typeof d.toDate === "function") date = d.toDate();
+  else if (typeof d === "number") date = new Date(d);
+  else if (d instanceof Date) date = d;
+  else if (typeof d === "string") {
+    const iso = Date.parse(d);
+    if (!isNaN(iso)) date = new Date(iso);
+    else {
+      const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+  }
+  if (!date) return null;
+  const y = date.getFullYear();
+  const mth = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${mth}-${day}`;
+}
+
+// yeni yardımcı: task objesinde olası date alanlarını normalize et
+function normalizeTaskDateField(t: any): any {
+  // öncelik: due, dueDate, scheduledFor
+  return t?.due ?? t?.dueDate ?? t?.scheduledFor ?? null;
+}
+
 function isSameLocalDayMillis(ms?: number | null) {
   if (!ms) return false;
-  const d = new Date(ms);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const date = new Date(ms);
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const end = start + 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const todayStart = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), new Date(now).getDate()).getTime();
+  const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+  // ensure the due falls anywhere within today's local range
+  return ms >= todayStart && ms < todayEnd;
 }
 
 function normalizePriority(p: any): "low" | "medium" | "high" {
@@ -88,13 +131,14 @@ export const HomeScreen: React.FC = () => {
         const items: TaskItem[] = [];
         snap.forEach((d) => {
           const data = d.data() as any;
+          const rawDate = normalizeTaskDateField(data);
           items.push({
             id: d.id,
             title: data.title ?? "Unnamed",
             // normalize priority to internal keys
             priority: normalizePriority(data.priority),
             // keep raw due value but parsing helpers will handle types
-            due: data.due ?? null,
+            due: rawDate ?? null,
             done: Boolean(data.completed ?? data.done ?? false),
           });
         });
@@ -109,11 +153,14 @@ export const HomeScreen: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     if (filter === "Tümü") return tasks;
-    if (filter === "Bugün")
+    if (filter === "Bugün") {
+      const today = new Date();
+      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       return tasks.filter((t) => {
-        const ms = dueToMillis(t.due);
-        return isSameLocalDayMillis(ms);
+        const k = toYMDKey(t.due);
+        return k === todayKey;
       });
+    }
     if (filter === "Yüksek") return tasks.filter((t) => t.priority === "high");
     return tasks;
   }, [tasks, filter]);
@@ -145,7 +192,7 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.topSubtitle}>Günlük hedeflerine odaklan.</Text>
           </View>
 
-          <Pressable onPress={() => navigation.navigate(Routes.Settings as any)} style={styles.topIcon}>
+          <Pressable onPress={() => navigation.navigate(Routes.Menu as any)} style={styles.topIcon}>
             <Text style={{ fontSize: 18 }}>☰</Text>
           </Pressable>
         </View>
@@ -175,7 +222,7 @@ export const HomeScreen: React.FC = () => {
         <View style={{ marginTop: 22 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontWeight: "700" }}>Gündemdeki görevler</Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
               {(["Tümü", "Bugün", "Yüksek"] as const).map((f) => (
                 <Pressable
                   key={f}
