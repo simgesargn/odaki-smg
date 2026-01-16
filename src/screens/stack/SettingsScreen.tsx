@@ -95,19 +95,27 @@ export function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Hesap */}
+        {/* Hesap (yenilendi: butonlar full-width, daha iyi spacing) */}
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={styles.cardTitle}>Hesap</Text>
           <View style={{ marginTop: 8 }}>
-            <Text variant="muted">E-posta: { /* gösterilecek e-posta yoksa gizli */ } —</Text>
+            <Text variant="muted">E-posta: demo@odaki.app</Text>
           </View>
 
           <View style={{ marginTop: 12 }}>
-            <Pressable style={[styles.primary]} onPress={onSignOut}>
+            <Pressable
+              onPress={() => Alert.alert("Yakında", "Çıkış yapma özelliği yakında aktif olacak.")}
+              style={[styles.fullBtn, { backgroundColor: theme.primary }]}
+            >
               <Text style={{ color: "#fff", fontWeight: "700" }}>Çıkış Yap</Text>
             </Pressable>
 
-            <Pressable style={[styles.danger, { marginTop: 8 }]} onPress={onDeleteAccount}>
+            <View style={{ height: 12 }} />
+
+            <Pressable
+              onPress={() => Alert.alert("Yakında", "Hesap silme özelliği yakında aktif olacak.")}
+              style={[styles.fullBtn, { backgroundColor: "#ef4444" }]}
+            >
               <Text style={{ color: "#fff" }}>Hesabı Sil</Text>
             </Pressable>
           </View>
@@ -130,4 +138,11 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#E9E7FF" },
   primary: { backgroundColor: "#6C5CE7", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
   danger: { backgroundColor: "#ef4444", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  fullBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
 });

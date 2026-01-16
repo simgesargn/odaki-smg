@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet, FlatList, ActivityIndicator, Switch, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Pressable, StyleSheet, ActivityIndicator, Switch, Alert, ScrollView } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Text } from "../../ui/Text";
@@ -12,12 +12,14 @@ import { demoNotifications } from "../../data/mockData";
 import { useTheme } from "../../ui/ThemeProvider";
 
 const KEY_PUSH = "odaki_push_enabled_v1";
+const BUTTON_HEIGHT = 52;
 
 export function NotificationsScreen() {
   const nav = useNavigation<any>();
   const { user } = useUser();
   const uid = user?.uid ?? null;
   const themeCtx = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,13 +76,16 @@ export function NotificationsScreen() {
     }
   };
 
+  // Content padding bottom to avoid overlapping with the fixed Save bar
+  const contentPaddingBottom = BUTTON_HEIGHT + insets.bottom + 24;
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeCtx.colors.background }]}>
       <View style={styles.header}>
         <Text style={{ fontSize: 22, fontWeight: "700", color: themeCtx.colors.text }}>Bildirimler</Text>
       </View>
 
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: contentPaddingBottom }}>
         <View style={[styles.card, { borderColor: themeCtx.colors.border }]}>
           <Text style={{ fontWeight: "700", marginBottom: 8, color: themeCtx.colors.text }}>Özet Bildirim</Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -152,33 +157,49 @@ export function NotificationsScreen() {
           </View>
         </View>
 
-        <Pressable style={[styles.saveBtn, { backgroundColor: themeCtx.colors.primary }]} onPress={() => Alert.alert("Kaydedildi", "Ayarlar kaydedildi (demo)")}>
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Kaydet</Text>
-        </Pressable>
-
         <Text style={{ fontWeight: "700", marginBottom: 8, marginTop: 12, color: themeCtx.colors.text }}>Son Bildirimler</Text>
-        <FlatList
-          data={notifications.length ? notifications : demoNotifications}
-          keyExtractor={(i) => i.id}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { borderColor: themeCtx.colors.border }]}>
+
+        {/* render notifications */}
+        {loading ? (
+          <View style={{ padding: 24, alignItems: "center" }}>
+            <ActivityIndicator />
+          </View>
+        ) : (
+          notifications.map((item) => (
+            <View key={item.id} style={[styles.card, { borderColor: themeCtx.colors.border }]}>
               <Text style={{ fontWeight: "700", color: themeCtx.colors.text }}>{item.title}</Text>
               <Text variant="muted" style={{ marginTop: 6 }}>{item.body}</Text>
               <Text variant="muted" style={{ marginTop: 6, fontSize: 11 }}>{new Date(item.time ?? Date.now()).toLocaleString("tr-TR")}</Text>
             </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 24 }}
-        />
+          ))
+        )}
+      </ScrollView>
+
+      {/* Fixed bottom Save bar */}
+      <View style={{ paddingBottom: insets.bottom, backgroundColor: themeCtx.colors.background }}>
+        <View style={{ height: 12 }} />
+        <Pressable
+          onPress={() => Alert.alert("Kaydedildi", "Ayarlar (demo) kaydedildi")}
+          style={{
+            marginHorizontal: 16,
+            height: BUTTON_HEIGHT,
+            borderRadius: 12,
+            backgroundColor: themeCtx.colors.primary,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Kaydet</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: 16 },
-  back: { padding: 8 },
-  container: { paddingHorizontal: 16, flex: 1 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   card: { backgroundColor: "#fff", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#eee", marginBottom: 10 },
 });

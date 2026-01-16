@@ -6,12 +6,15 @@ import { useNavigation } from "@react-navigation/native";
 import { useUser } from "../../context/UserContext";
 import { db } from "../../firebase/firebase";
 import { collection, query, orderBy, onSnapshot, getDoc, doc } from "firebase/firestore";
+import { useTheme } from "../../ui/ThemeProvider";
 
 type FlowerRow = { id: string; type: string; earnedAt?: number };
 
 export const GardenScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const { user } = useUser();
+  const theme = useTheme();
+
   const uid = user?.uid ?? null;
 
   const [flowers, setFlowers] = useState<FlowerRow[] | null>(null);
@@ -112,7 +115,7 @@ export const GardenScreen: React.FC = () => {
   const totalCount = flowers ? flowers.length : 0;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       {/* native stack header will show back button */}
       <View style={styles.header}>
         <Text variant="h2">Bahçem</Text>
@@ -127,12 +130,31 @@ export const GardenScreen: React.FC = () => {
           <>
             <View style={styles.summary}>
               <View style={styles.summaryCol}>
-                <Text style={{ fontWeight: "700", fontSize: 18 }}>{totalCount}</Text>
+                <Text style={{ fontWeight: "700", fontSize: 18, color: theme.text }}>{totalCount}</Text>
                 <Text variant="muted">Toplam Çiçek</Text>
               </View>
               <View style={styles.summaryCol}>
-                <Text style={{ fontWeight: "700", fontSize: 18 }}>{streakDays ?? "—"}</Text>
+                <Text style={{ fontWeight: "700", fontSize: 18, color: theme.text }}>{streakDays ?? "—"}</Text>
                 <Text variant="muted">Seri (gün)</Text>
+              </View>
+            </View>
+
+            {/* Yeni: Demo Premium olmayan çiçek grid (silik / kilitli) */}
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: "700", marginBottom: 8, color: theme.text }}>Çiçek Koleksiyonum</Text>
+              <View style={styles.grid}>
+                {[
+                  "Tohum","Papatya","Lale","Gül",
+                  "Menekşe","Sümbül","Orkide","Kaktüs",
+                ].map((label, i) => (
+                  <View key={label + i} style={[styles.gridItem, { backgroundColor: theme.card }]}>
+                    <Text style={{ fontSize: 26, opacity: 0.45 }}>
+                      {["🌱","🌼","🌷","🌹","💜","🌸","🪷","🌵"][i] ?? "🌱"}
+                    </Text>
+                    <Text variant="muted" style={{ marginTop: 6, opacity: 0.6 }}>{label}</Text>
+                    <Text style={styles.lock}>🔒</Text>
+                  </View>
+                ))}
               </View>
             </View>
 
@@ -164,11 +186,27 @@ export const GardenScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
   back: { padding: 8 },
   container: { paddingHorizontal: 16, paddingBottom: 24, flex: 1 },
   summary: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#fff", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#eee", marginBottom: 12 },
   summaryCol: { alignItems: "center", flex: 1 },
   card: { flexDirection: "row", alignItems: "center", padding: 12, backgroundColor: "#fff", borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: "#eee" },
+
+  // grid styles
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 8 },
+  gridItem: {
+    width: "23%",
+    aspectRatio: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+    marginBottom: 12,
+    opacity: 0.45,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  lock: { position: "absolute", right: 8, bottom: 8, fontSize: 12, opacity: 0.9 },
 });

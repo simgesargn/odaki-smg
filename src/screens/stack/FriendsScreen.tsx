@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Pressable, FlatList, Modal, TextInput } from "react-native";
+import { View, StyleSheet, FlatList, Text as RNText } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../ui/Text";
 import { useNavigation } from "@react-navigation/native";
@@ -8,6 +8,7 @@ import { useUser } from "../../context/UserContext";
 import { db } from "../../firebase/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import { demoFriends } from "../../data/mockData";
+import { useTheme } from "../../ui/ThemeProvider";
 
 type FriendRow = { id: string; name: string; status?: string; emoji?: string };
 
@@ -21,6 +22,7 @@ export function FriendsScreen() {
   const nav = useNavigation<any>();
   const { user } = useUser();
   const uid = user?.uid ?? null;
+  const theme = useTheme();
 
   const [friends, setFriends] = useState<FriendRow[]>(SAMPLE);
   const [loading, setLoading] = useState<boolean>(true);
@@ -76,13 +78,29 @@ export function FriendsScreen() {
   }, [uid]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       {/* native stack header will show back when opened from menu; tab root screens won't show header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: theme.spacing.lg }]}>
         <Text variant="h2">Arkadaşlar</Text>
-        <Pressable onPress={() => setAddModal(true)} style={styles.addBtn}>
-          <Text style={{ fontWeight: "700", color: "#6C5CE7" }}>Arkadaş Ekle</Text>
-        </Pressable>
+        <RNText style={{ fontWeight: "700", color: theme.primary }}>Arkadaş Ekle</RNText>
+      </View>
+
+      {/* Arkadaş özeti */}
+      <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "700" }}>Toplam</Text>
+            <Text style={{ marginTop: 6 }}>{friends.length}</Text>
+          </View>
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "700" }}>Çevrimiçi</Text>
+            <Text style={{ marginTop: 6 }}>1</Text>
+          </View>
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontWeight: "700" }}>Son aktif</Text>
+            <Text variant="muted" style={{ marginTop: 6 }}>2 sn önce</Text>
+          </View>
+        </View>
       </View>
 
       <FlatList
@@ -90,13 +108,15 @@ export function FriendsScreen() {
         keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: 16 }}
         renderItem={({ item }) => (
-          <Pressable onPress={() => nav.navigate(Routes.FriendProfile as any, { friendId: item.id })} style={styles.card}>
-            <Text style={{ fontSize: 24 }}>{item.emoji ?? "🙂"}</Text>
+          <View style={[styles.friendCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.avatarBox}>
+              <Text style={{ fontSize: 20 }}>{item.emoji ?? "🙂"}</Text>
+            </View>
             <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={{ fontWeight: "700" }}>{item.name}</Text>
               <Text variant="muted">{item.status ?? "Durum yok"}</Text>
             </View>
-          </Pressable>
+          </View>
         )}
         ListEmptyComponent={
           loading ? (
@@ -111,30 +131,8 @@ export function FriendsScreen() {
         }
       />
 
-      {/* Add Friend Modal */}
-      {addModal && (
-        <Modal transparent animationType="slide" onRequestClose={() => setAddModal(false)}>
-          <View style={{ flex: 1, justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" }}>
-            <View style={{ margin: 20, backgroundColor: "#fff", borderRadius: 12, padding: 16 }}>
-              <Text style={{ fontWeight: "700", marginBottom: 8 }}>Yeni Arkadaş Ekle</Text>
-              <TextInput placeholder="Kullanıcı adı ara" value={query} onChangeText={setQuery} style={{ borderWidth: 1, borderColor: "#eee", padding: 8, borderRadius: 8 }} />
-              <View style={{ marginTop: 12 }}>
-                {(demoFriends.filter(f => f.name.toLowerCase().includes(query.toLowerCase()) || f.username.includes(query.toLowerCase()))).map(f => (
-                  <View key={f.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
-                    <View><Text style={{ fontWeight: "700" }}>{f.name}</Text><Text variant="muted">{f.status}</Text></View>
-                    <Pressable onPress={() => setSentRequests(prev => prev.concat(f.id))} style={{ padding: 8, backgroundColor: sentRequests.includes(f.id) ? "#ccc" : "#6C5CE7", borderRadius: 8 }}>
-                      <Text style={{ color: "#fff" }}>{sentRequests.includes(f.id) ? "İstek Gönderildi" : "İstek Gönder"}</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
-                <Pressable onPress={() => setAddModal(false)} style={{ padding: 8 }}><Text>Kapat</Text></Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      {/* Add Friend Modal removed from UI (kept elsewhere) */}
+
     </SafeAreaView>
   );
 }
@@ -143,14 +141,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: { padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   addBtn: { padding: 8 },
-  card: {
+  summaryCard: { marginHorizontal: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#eee", backgroundColor: "#fff", marginBottom: 12 },
+  friendCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#eee",
   },
+  avatarBox: { width: 36, height: 36, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.03)" },
 });

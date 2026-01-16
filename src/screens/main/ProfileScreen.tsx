@@ -173,6 +173,27 @@ export const ProfileScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Yeni: Ek bilgi kartları (Hızlı Özet / Uygulama / Notlar) */}
+      <View style={styles.extraRow}>
+        <View style={styles.extraCard}>
+          <Text style={{ fontWeight: "700" }}>Hızlı Özet</Text>
+          <Text variant="muted" style={{ marginTop: 8 }}>Son odak: —</Text>
+          <Text variant="muted">Bugünkü hedef: 45 dk</Text>
+          <Text variant="muted">Durum: Demo</Text>
+        </View>
+
+        <View style={styles.extraCard}>
+          <Text style={{ fontWeight: "700" }}>Uygulama</Text>
+          <Text variant="muted" style={{ marginTop: 8 }}>Sürüm: 1.0</Text>
+          <Text variant="muted">Senkronizasyon: Yakında</Text>
+        </View>
+
+        <View style={styles.extraCard}>
+          <Text style={{ fontWeight: "700" }}>Notlar</Text>
+          <Text variant="muted" style={{ marginTop: 8 }}>Bu alan demo amaçlıdır.</Text>
+        </View>
+      </View>
+
       {/* menu rows moved into dedicated navigation; avoid duplicate Settings entry */}
       <View style={styles.menu}>
         <Pressable style={styles.menuRow} onPress={() => nav.navigate(Routes.Notifications as any)}>
@@ -228,4 +249,23 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
   pickerCard: { backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 12, borderTopRightRadius: 12, maxHeight: 360 },
   emojiBtn: { width: "16.66%", padding: 10, alignItems: "center", justifyContent: "center" },
+  extraRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+    marginHorizontal: 16,
+    flexWrap: "wrap",
+  },
+  extraCard: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#eee",
+    marginHorizontal: 6,
+    marginBottom: 12,
+    alignItems: "flex-start",
+  },
 });

@@ -1,67 +1,87 @@
 import React from "react";
-import { View, Text } from "react-native";
-import { useTheme } from "../../ui/ThemeProvider";
+import { View, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "../ui/Text";
+import { useTheme } from "../ui/ThemeProvider";
 
 export const StatsScreen: React.FC = () => {
   const theme = useTheme();
 
+  // Örnek/placeholder veriler (gerçekten varsa store'dan çekebilirsiniz)
+  const totalFocusMinutes = 540;
+  const sessionsCompleted = 12;
+  const completedTasks = 44;
+
   return (
-    <View>
-      {/* === Düzeltilmiş: 3 kartlık satır === */}
-      <View
-        style={{
-          flexDirection: "row",
-          paddingHorizontal: theme.spacing.lg,
-          gap: 12,
-          marginTop: theme.spacing.md,
-        }}
-      >
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{
-            backgroundColor: theme.card,
-            borderRadius: theme.radius.md,
-            padding: theme.spacing.md,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}>
-            <Text numberOfLines={1} style={{ fontSize: 14, color: theme.text }}>Toplam Odak</Text>
-            <Text style={{ fontSize: 20, fontWeight: "800", marginTop: 8 }}> { /* value */ } {totalHoursText}</Text>
-          </View>
-        </View>
-
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{
-            backgroundColor: theme.card,
-            borderRadius: theme.radius.md,
-            padding: theme.spacing.md,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}>
-            <Text numberOfLines={1} style={{ fontSize: 14, color: theme.text }}>Tamamlanan Oturum</Text>
-            <Text style={{ fontSize: 20, fontWeight: "800", marginTop: 8 }}>{/* value */}{state?.stats?.sessionsCompleted ?? 0}</Text>
-          </View>
-        </View>
-
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{
-            backgroundColor: theme.card,
-            borderRadius: theme.radius.md,
-            padding: theme.spacing.md,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}>
-            <Text numberOfLines={1} style={{ fontSize: 14, color: theme.text }}>Tamamlanan Görev</Text>
-            <Text style={{ fontSize: 20, fontWeight: "800", marginTop: 8 }}>{/* value */}{demoUserStats.completedTasks ?? 0}</Text>
-          </View>
-        </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
+      <View style={{ paddingHorizontal: 16, paddingTop: theme.spacing.md }}>
+        <Text variant="h2">İstatistikler</Text>
       </View>
-      {/* === end 3-card row === */}
-    </View>
+
+      <View
+        style={[
+          styles.row,
+          {
+            paddingHorizontal: 16,
+            marginTop: 12,
+            gap: 12, // RN 0.81+ destekliyorsa çalışır; yoksa marginRight set edilir per-card
+          },
+        ]}
+      >
+        {[
+          {
+            key: "focus",
+            label: "Toplam Odak",
+            value: `${totalFocusMinutes} dk`,
+          },
+          {
+            key: "sessions",
+            label: "Tamamlanan Oturum",
+            value: `${sessionsCompleted}`,
+          },
+          {
+            key: "tasks",
+            label: "Tamamlanan Görev",
+            value: `${completedTasks}`,
+          },
+        ].map((c, idx) => (
+          <View
+            key={c.key}
+            style={[
+              styles.cardWrapper,
+              { marginRight: idx < 2 ? 12 : 0 }, // gap desteklenmiyorsa bu çalışır
+            ]}
+          >
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  borderRadius: theme.radius.md,
+                  padding: theme.spacing.md,
+                },
+              ]}
+            >
+              <Text numberOfLines={1} style={{ fontSize: 13, color: theme.subtext }}>
+                {c.label}
+              </Text>
+              <Text numberOfLines={1} style={{ fontSize: 20, fontWeight: "800", marginTop: 8, textAlign: "center", color: theme.text }}>
+                {c.value}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </SafeAreaView>
   );
 };
+
+export default StatsScreen;
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  row: { flexDirection: "row", width: "100%" },
+  cardWrapper: { flex: 1, minWidth: 0 }, // minWidth:0 önemli — iOS'ta taşmayı önler
+  card: { alignItems: "center", justifyContent: "center", borderWidth: 1 },
+});
