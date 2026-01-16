@@ -10,6 +10,9 @@ import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { loadFocusStats } from "../../features/focus/focusStore";
 import { useUser } from "../../context/UserContext";
+import { PremiumBanner } from "../../ui/components/PremiumBanner";
+import { StatCard } from "../../ui/components/StatCard";
+import { demoWeekly, demoUserStats } from "../../data/mockData";
 
 type SessionDoc = {
   userId: string;
@@ -136,20 +139,8 @@ export const StatsScreen: React.FC = () => {
 
   return (
     <Screen>
-      {/* Premium banner (daha kompakt) */}
       <View style={{ marginHorizontal: 16, marginTop: 12 }}>
-        <View style={[styles.promoCard, { backgroundColor: "#fff" }]}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ fontSize: 20, marginRight: 10 }}>⭐</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: "700", fontSize: 15 }}>Gelişmiş istatistikler Premium'da</Text>
-              <Text variant="muted" style={{ marginTop: 4, fontSize: 13 }}>Detaylı analizler ve özel çiçekler için Premium'a geçin.</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => navigation.navigate(Routes.Premium as any)} style={styles.promoBtn}>
-            <Text style={{ color: "#fff", fontWeight: "700" }}>Premium</Text>
-          </Pressable>
-        </View>
+        <PremiumBanner onPress={() => navigation.navigate(Routes.Premium as any)} />
       </View>
 
       <View style={{ marginHorizontal: 16, marginTop: 16 }}>
@@ -174,23 +165,10 @@ export const StatsScreen: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* KPI kartları: eşit genişlik, ikonlu ve sığan metin */}
-        <View style={styles.kpiRow}>
-          <View style={[styles.statCard, { flex: 1 }]}>
-            <Text style={styles.kpiIcon}>⏱️</Text>
-            <Text numberOfLines={2} style={styles.statLabel}>Toplam Odak (dk)</Text>
-            <Text style={styles.statBig}>{currentMetrics.totalMinutes}</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1 }]}>
-            <Text style={styles.kpiIcon}>🔥</Text>
-            <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan oturum</Text>
-            <Text style={styles.statBig}>{currentMetrics.completedSessions}</Text>
-          </View>
-          <View style={[styles.statCard, { flex: 1 }]}>
-            <Text style={styles.kpiIcon}>✅</Text>
-            <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan görev</Text>
-            <Text style={styles.statBig}>{currentMetrics.completedTasks}</Text>
-          </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+          <StatCard icon="⏱️" label="Toplam Odak (dk)" value={demoUserStats.totalFocusMinutes ?? currentMetrics.totalMinutes} />
+          <StatCard icon="🔥" label="Tamamlanan oturum" value={demoUserStats.completedSessions ?? currentMetrics.completedSessions} />
+          <StatCard icon="✅" label="Tamamlanan görev" value={demoUserStats.completedTasks ?? currentMetrics.completedTasks} />
         </View>
 
         {/* Son 7 Gün */}

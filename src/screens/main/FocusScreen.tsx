@@ -6,6 +6,7 @@ import { Button } from "../../ui/Button";
 import { Routes } from "../../navigation/routes";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { theme } from "../../ui/theme"; // relative import — alias kaldırıldı
 import {
   loadFocusState,
   setSelectedMinutes,
@@ -15,6 +16,8 @@ import {
   addWarningOrFail,
   type FlowerType,
 } from "../../focus/focusStore";
+import { demoFlowers } from "../../data/mockData";
+import { EmptyStateCard } from "../../ui/components/EmptyStateCard";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const formatMMSS = (sec: number) => `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`;
@@ -97,7 +100,7 @@ export const FocusScreen: React.FC = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-        {/* top spacing to avoid overlap with status bar/header */}
+        {/* header spacing */}
         <View style={{ height: insets.top || 12 }} />
 
         {/* Header actions row */}
@@ -159,17 +162,21 @@ export const FocusScreen: React.FC = () => {
             })}
           </View>
 
-          {/* small collection + stats kept but simplified layout */}
+          {/* small collection + stats kept but simplified layout (demo fallback) */}
           <View style={{ marginTop: 8 }}>
             <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
-            <View style={{ padding: 12, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#eee" }}>
+            <View style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#eee", backgroundColor: "#fff" }}>
               {(!state?.flowers || state.flowers.length === 0) ? (
-                <Text variant="muted">Henüz çiçeğin yok. Odak oturumunu tamamlayınca burada gözükecek.</Text>
+                <EmptyStateCard
+                  title="Henüz çiçeğin yok"
+                  subtitle="Odak oturumlarını tamamladıkça çiçek kazanacaksın. Hemen başla!"
+                  cta={{ label: "Başlat", onPress: () => nav.navigate(Routes.Focus as any) }}
+                />
               ) : (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-                  {state.flowers.slice(0, 12).map((f: any, idx: number) => (
-                    <View key={`${f?.id ?? f?.type ?? idx}`} style={{ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.05)", margin: 4 }}>
-                      <Text>{f.type === "tohum" ? "🌱" : f.type === "lotus" ? "🪷" : f.type === "aycicegi" ? "🌻" : "🌸"}</Text>
+                  {(state.flowers || demoFlowers).slice(0, 12).map((f: any, idx: number) => (
+                    <View key={`${f?.id ?? idx}`} style={{ width: 52, height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.03)", margin: 4 }}>
+                      <Text style={{ fontSize: 24 }}>{f.emoji ?? (f.type === "lotus" ? "🪷" : "🌱")}</Text>
                     </View>
                   ))}
                 </View>

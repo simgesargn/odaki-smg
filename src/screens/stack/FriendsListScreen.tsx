@@ -58,8 +58,8 @@ export function FriendsListScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Pressable onPress={() => nav.navigate(Routes.RootTabs as any)} style={styles.back}><Text>Geri</Text></Pressable>
-        <Text variant="h2">Arkadaş Listesi</Text>
-        <Pressable onPress={() => nav.navigate(Routes.AddFriend as any)} style={styles.add}><Text>Ekle</Text></Pressable>
+        <Text variant="h2">Arkadaşlar</Text>
+        <Pressable onPress={() => nav.navigate(Routes.AddFriend as any)} style={styles.add}><Text style={{ fontWeight: "700", color: theme.colors.primary }}>Arkadaş Ekle</Text></Pressable>
       </View>
 
       <FlatList
@@ -68,17 +68,17 @@ export function FriendsListScreen() {
         contentContainerStyle={{ padding: 16 }}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+            <View style={styles.avatarCircle}><Text style={{ fontSize: 20 }}>{item.emoji}</Text></View>
             <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={{ fontWeight: "700" }}>{item.name}</Text>
               {item.email ? <Text variant="muted">{item.email}</Text> : null}
             </View>
             <Pressable onPress={() => nav.navigate(Routes.FriendsActivity as any, { friendId: item.id })} style={styles.viewBtn}>
-              <Text>Gör</Text>
+              <Text>Görüntüle</Text>
             </Pressable>
           </View>
         )}
-        ListEmptyComponent={<View style={{ padding: 24, alignItems: "center" }}><Text variant="muted">{loading ? "Yükleniyor..." : "Henüz arkadaş yok."}</Text></View>}
+        ListEmptyComponent={<View style={{ padding: 24, alignItems: "center" }}><Text variant="muted">{loading ? "Yükleniyor..." : "Henüz arkadaş yok. Arkadaş ekleyerek başlayabilirsiniz."}</Text></View>}
       />
     </SafeAreaView>
   );
@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
   header: { padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   back: { padding: 8 },
   add: { padding: 8 },
-  row: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, backgroundColor: "#fff", marginBottom: 12, borderWidth: 1, borderColor: "#eee" },
+  row: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, backgroundColor: "#fff", marginBottom: 12, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" },
+  avatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.03)", alignItems: "center", justifyContent: "center" },
   viewBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#eee" },
 });

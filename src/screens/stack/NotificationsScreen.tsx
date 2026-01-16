@@ -8,6 +8,7 @@ import { useUser } from "../../context/UserContext";
 import { db } from "../../firebase/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Routes } from "../../navigation/routes";
+import { demoNotifications } from "../../data/mockData";
 
 const KEY_PUSH = "odaki_push_enabled_v1";
 
@@ -37,7 +38,7 @@ export function NotificationsScreen() {
 
   useEffect(() => {
     if (!uid) {
-      setNotifications([]);
+      setNotifications(demoNotifications);
       setLoading(false);
       return;
     }
@@ -51,7 +52,7 @@ export function NotificationsScreen() {
         setLoading(false);
       },
       () => {
-        setNotifications([]);
+        setNotifications(demoNotifications);
         setLoading(false);
       }
     );

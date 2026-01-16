@@ -8,6 +8,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { loadFocusStats } from "../../features/focus/focusStore";
+import { theme } from "../../ui/theme";
+import { demoUserStats } from "../../data/mockData";
 
 const EMOJIS = ["🙂", "😄", "😎", "🔥", "🌱", "🪷", "🌻", "🌸", "💪", "✨", "🧠", "📚", "🎯", "🏆"];
 
@@ -120,7 +122,7 @@ export const ProfileScreen: React.FC = () => {
 
       <View style={styles.headerCard}>
         <View style={styles.avatarWrap}>
-          <Pressable onPress={() => setPickerVisible(true)} style={styles.avatarTouchable}>
+          <Pressable onPress={() => setPickerVisible(true)} style={[styles.avatarTouchable, profileEmoji ? styles.avatarSelected : null]}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
             ) : (
@@ -128,44 +130,43 @@ export const ProfileScreen: React.FC = () => {
             )}
           </Pressable>
 
+          {/* single small camera/edit icon */}
           <View style={styles.avatarOverlays}>
-            <Pressable onPress={() => setPickerVisible(true)} style={styles.iconBtn}>
-              <Text>😊</Text>
-            </Pressable>
-            <Pressable onPress={() => nav.navigate(Routes.Premium as any)} style={[styles.iconBtn, { marginLeft: 8 }]}>
-              <Text style={{ fontSize: 12 }}>📷</Text>
-            </Pressable>
+            <Pressable onPress={() => setPickerVisible(true)} style={styles.iconBtn}><Text>✏️</Text></Pressable>
           </View>
         </View>
 
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{usernameField ?? user?.displayName ?? "Kullanıcı"}</Text>
           {user?.email ? <Text variant="muted">{user.email}</Text> : null}
-          <Pressable onPress={() => nav.navigate(Routes.Premium as any)} style={styles.premiumCta}>
-            <Text variant="muted">Gerçek fotoğraf Premium’da</Text>
-          </Pressable>
         </View>
+      </View>
+
+      <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+        <Pressable onPress={() => nav.navigate(Routes.Premium as any)}>
+          <Text variant="muted">Gerçek fotoğraf Premium’da</Text>
+        </Pressable>
       </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statCardSmall}>
           <Text style={{ fontSize: 18 }}>🗂️</Text>
-          <Text style={styles.statValue}>--</Text>
+          <Text style={styles.statValue}>{demoUserStats.completedTasks}</Text>
           <Text variant="muted" style={styles.statLabel}>Görev</Text>
         </View>
         <View style={styles.statCardSmall}>
           <Text style={{ fontSize: 18 }}>⏱️</Text>
-          <Text style={styles.statValue}>{focusStats.totalMinutes}</Text>
+          <Text style={styles.statValue}>{focusStats.totalMinutes ?? demoUserStats.totalFocusMinutes}</Text>
           <Text variant="muted" style={styles.statLabel}>Odak (dk)</Text>
         </View>
         <View style={styles.statCardSmall}>
           <Text style={{ fontSize: 18 }}>🔥</Text>
-          <Text style={styles.statValue}>{focusStats.streakDays}</Text>
+          <Text style={styles.statValue}>{focusStats.streakDays ?? demoUserStats.streakDays}</Text>
           <Text variant="muted" style={styles.statLabel}>Seri</Text>
         </View>
         <View style={styles.statCardSmall}>
           <Text style={{ fontSize: 18 }}>👥</Text>
-          <Text style={styles.statValue}>--</Text>
+          <Text style={styles.statValue}>{demoUserStats.totalFriends ?? "--"}</Text>
           <Text variant="muted" style={styles.statLabel}>Arkadaş</Text>
         </View>
       </View>
@@ -233,6 +234,7 @@ const styles = StyleSheet.create({
   headerCard: { flexDirection: "row", alignItems: "center", padding: 16, marginHorizontal: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#eee" },
   avatarWrap: { marginRight: 14, position: "relative" },
   avatarTouchable: { alignItems: "center", justifyContent: "center" },
+  avatarSelected: { borderWidth: 2, borderColor: theme.colors.primary },
   avatarEmoji: { fontSize: 72 },
   avatarImage: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#eee" },
   avatarOverlays: { position: "absolute", right: -6, bottom: -6, flexDirection: "row" },
