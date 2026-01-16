@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, Text as RNText, StyleSheet, ActivityIndicator } from "react-native";
-import { theme, colors } from "./theme";
+import { useTheme } from "./ThemeProvider";
 
 type Props = {
   title: string;
@@ -12,16 +12,19 @@ type Props = {
 };
 
 export const Button: React.FC<Props> = ({ title, variant = "primary", onPress, full = false, loading, disabled }) => {
-  const bg = variant === "primary" ? colors.primary : variant === "secondary" ? "transparent" : "transparent";
-  const fg = variant === "primary" ? "#fff" : colors.primary;
+  const safeTheme = useTheme();
+  const bg = variant === "primary" ? safeTheme.primary : "transparent";
+  const fg = variant === "primary" ? "#fff" : safeTheme.primary;
   const bordered = variant === "secondary";
   return (
-    <Pressable onPress={onPress} style={[
-      styles.btn,
-      { backgroundColor: bg, borderColor: bordered ? colors.primary : "transparent", borderWidth: bordered ? 1 : 0, borderRadius: theme.radius.md },
-      full ? styles.full : undefined,
-      disabled ? styles.disabled : undefined
-    ]}>
+    <Pressable
+      onPress={onPress}
+      style={[
+        { paddingVertical: safeTheme.spacing.sm, paddingHorizontal: safeTheme.spacing.md, alignItems: "center", justifyContent: "center", backgroundColor: bg, borderColor: bordered ? safeTheme.primary : "transparent", borderWidth: bordered ? 1 : 0, borderRadius: safeTheme.radius.md },
+        full ? { alignSelf: "stretch" } : undefined,
+        disabled ? { opacity: 0.6 } : undefined,
+      ]}
+    >
       {loading ? <ActivityIndicator color={fg} /> : <RNText style={{ color: fg, fontWeight: "700" }}>{title}</RNText>}
     </Pressable>
   );
@@ -29,8 +32,5 @@ export const Button: React.FC<Props> = ({ title, variant = "primary", onPress, f
 
 export default Button;
 
-const styles = StyleSheet.create({
-  btn: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, alignItems: "center", justifyContent: "center" },
-  full: { alignSelf: "stretch" },
-  disabled: { opacity: 0.6 },
-});
+// styles minimal; dynamic parts applied inline in render
+const styles = StyleSheet.create({});

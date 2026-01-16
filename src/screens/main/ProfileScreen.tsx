@@ -10,6 +10,8 @@ import { Routes } from "../../navigation/routes";
 import { loadFocusStats } from "../../features/focus/focusStore";
 import { theme } from "../../ui/theme";
 import { demoUserStats } from "../../data/mockData";
+import { AvatarPickerModal } from "../../components/AvatarPickerModal";
+import { useTheme } from "../../ui/ThemeProvider";
 
 const EMOJIS = ["🙂", "😄", "😎", "🔥", "🌱", "🪷", "🌻", "🌸", "💪", "✨", "🧠", "📚", "🎯", "🏆"];
 
@@ -171,10 +173,8 @@ export const ProfileScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* menu rows moved into dedicated navigation; avoid duplicate Settings entry */}
       <View style={styles.menu}>
-        <Pressable style={styles.menuRow} onPress={() => nav.navigate(Routes.Settings as any)}>
-          <Text>Ayarlar</Text>
-        </Pressable>
         <Pressable style={styles.menuRow} onPress={() => nav.navigate(Routes.Notifications as any)}>
           <Text>Bildirimler</Text>
         </Pressable>
@@ -189,38 +189,14 @@ export const ProfileScreen: React.FC = () => {
         </Pressable>
       </View>
 
-      <Modal visible={pickerVisible} animationType="slide" transparent onRequestClose={() => setPickerVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.pickerCard}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontWeight: "700", fontSize: 16 }}>Avatar Emoji Seç</Text>
-              <Pressable onPress={() => setPickerVisible(false)}>
-                <Text variant="muted">Kapat</Text>
-              </Pressable>
-            </View>
-            <FlatList
-              data={EMOJIS}
-              keyExtractor={(e) => e}
-              numColumns={6}
-              contentContainerStyle={{ marginTop: 12 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.emojiBtn}
-                  onPress={() => saveEmoji(item)}
-                  disabled={saving}
-                >
-                  <Text style={{ fontSize: 28 }}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
-            {saving ? (
-              <View style={{ marginTop: 8, alignItems: "center" }}>
-                <ActivityIndicator />
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <AvatarPickerModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onPick={(e) => {
+          // save and close
+          saveEmoji(e);
+        }}
+      />
     </SafeAreaView>
   );
 };

@@ -35,6 +35,7 @@ import { FriendsActivityScreen } from "../screens/stack/FriendsActivityScreen";
 import { FriendsRequestsScreen } from "../screens/stack/FriendsRequestsScreen";
 import { FriendsLeaderboardScreen } from "../screens/stack/FriendsLeaderboardScreen";
 import { FriendsScreen } from "../screens/stack/FriendsScreen";
+import { FriendProfileScreen } from "../screens/stack/FriendProfileScreen"; // yeni ekran
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -164,43 +165,46 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name={Routes.Notifications}
         component={NotificationsScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
       <Stack.Screen
         name={Routes.Settings}
         component={SettingsScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
       <Stack.Screen
         name={Routes.Privacy}
         component={PrivacyScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
       <Stack.Screen
         name={Routes.Garden}
         component={GardenScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
-      {/* Friends reachable via stack so menu can navigate to it */}
       <Stack.Screen
         name={Routes.Friends}
         component={FriendsScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
+      />
+      <Stack.Screen
+        name={Routes.FriendProfile}
+        component={FriendProfileScreen}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
       <Stack.Screen
         name={Routes.Premium}
         component={PremiumScreen}
-        options={{ headerShown: true, headerBackTitleVisible: false }}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
       />
 
-      {/* Optional/extra screens (if present in project) */}
-      {typeof AchievementsScreen !== "undefined" && (
-        <Stack.Screen
-          name={Routes.Achievements}
-          component={AchievementsScreen}
-          options={{ headerShown: true, headerBackTitleVisible: false }}
-        />
-      )}
+      {/* Ensure exactly one Achievements screen registration */}
+      <Stack.Screen
+        name={Routes.Achievements}
+        component={AchievementsScreen}
+        options={{ headerShown: true, headerBackTitleVisible: false, headerTitleAlign: "center" }}
+      />
+
       {typeof FocusSettingsScreen !== "undefined" && (
         <Stack.Screen name={Routes.FocusSettings} component={FocusSettingsScreen} />
       )}

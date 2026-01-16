@@ -29,6 +29,7 @@ export const Routes = {
   FriendsActivity: "FriendsActivity",
   FriendsRequests: "FriendsRequests",
   FriendsLeaderboard: "FriendsLeaderboard",
+  FriendProfile: "FriendProfile", // eklendi: tekil route adı
 } as const;
 
 export type RouteName = (typeof Routes)[keyof typeof Routes];

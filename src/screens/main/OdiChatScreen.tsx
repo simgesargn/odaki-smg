@@ -17,6 +17,8 @@ import { Text } from "../../ui/Text";
 import { askOdi } from "../../services/ai/odiService";
 import { loadRecent, saveMessage } from "../../services/ai/odiChatStore";
 import { useUser } from "../../context/UserContext";
+import { theme } from "../../ui/theme";
+import { useTheme } from "../../ui/ThemeProvider";
 
 type Msg = { id: string; role: "user" | "assistant" | "system"; text: string; createdAt: number };
 
@@ -122,8 +124,8 @@ export const OdiChatScreen: React.FC = () => {
     const isUser = item.role === "user";
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-          <Text style={isUser ? styles.msgTextUser : styles.msgTextAssistant}>{item.text}</Text>
+        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant, { backgroundColor: isUser ? theme.colors.primarySoft : "#E5E7EB" }]}>
+          <Text style={{ color: theme.colors.text }}>{item.text}</Text>
           <Text variant="caption" style={styles.ts}>
             {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </Text>

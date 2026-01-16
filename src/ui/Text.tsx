@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "./ThemeProvider";
 
 type Variant = "h1" | "h2" | "body" | "muted";
 
@@ -15,13 +15,15 @@ export const Text: React.FC<TextProps & { variant?: Variant }> = ({
   variant = "body",
   ...rest
 }) => {
-  const { colors } = useTheme();
+  // theme is the ThemeShape returned by useTheme()
+  const theme = useTheme();
+  const safeTheme = theme;
 
   const baseStyles = {
-    h1: { fontSize: 22, fontWeight: "700", color: colors.text },
-    h2: { fontSize: 18, fontWeight: "600", color: colors.text },
-    body: { fontSize: 14, color: colors.text },
-    muted: { fontSize: 13, color: colors.muted },
+    h1: { fontSize: 22, fontWeight: "700", color: safeTheme.text },
+    h2: { fontSize: 18, fontWeight: "600", color: safeTheme.text },
+    body: { fontSize: 14, color: safeTheme.text },
+    muted: { fontSize: 13, color: safeTheme.subtext },
   }[variant];
 
   //  FONT SIZE NEYSE LINE HEIGHT OTOMATİK BÜYÜR

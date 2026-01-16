@@ -18,6 +18,7 @@ import {
 } from "../../focus/focusStore";
 import { demoFlowers } from "../../data/mockData";
 import { EmptyStateCard } from "../../ui/components/EmptyStateCard";
+import { useTheme } from "../../ui/ThemeProvider";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const formatMMSS = (sec: number) => `${pad2(Math.floor(sec / 60))}:${pad2(sec % 60)}`;
@@ -25,6 +26,7 @@ const formatMMSS = (sec: number) => `${pad2(Math.floor(sec / 60))}:${pad2(sec % 
 export const FocusScreen: React.FC = () => {
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<any>(null);
@@ -96,6 +98,18 @@ export const FocusScreen: React.FC = () => {
 
   const emojiFor = (type: FlowerType | string) =>
     type === "tohum" ? "🌱" : type === "lotus" ? "🪷" : type === "aycicegi" ? "🌻" : "🌸";
+
+  const premiumFlowers = [
+    { id: "p1", name: "Altın Gül", icon: "🌹" },
+    { id: "p2", name: "Kristal Lale", icon: "🌷" },
+    { id: "p3", name: "Neon Orkide", icon: "🌺" },
+    { id: "p4", name: "Ay Çiçeği", icon: "🌻" },
+    { id: "p5", name: "Safir Menekşe", icon: "💠" },
+    { id: "p6", name: "Ateş Sümbülü", icon: "🔥" },
+    { id: "p7", name: "Zümrüt Kaktüs", icon: "🌵" },
+    { id: "p8", name: "Kristal Zambak", icon: "🌸" },
+    { id: "p9", name: "Ay Kristali", icon: "🌓" },
+  ];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -181,6 +195,27 @@ export const FocusScreen: React.FC = () => {
                   ))}
                 </View>
               )}
+            </View>
+          </View>
+
+          {/* Premium Çiçekler */}
+          <View style={{ marginTop: 12 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Text style={{ fontWeight: "700" }}>Premium Çiçekler</Text>
+              <Pressable onPress={() => nav.navigate(Routes.Premium as any)} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: theme.colors.primary, borderRadius: 999 }}>
+                <Text style={{ color: "#fff" }}>Premium'a Geç</Text>
+              </Pressable>
+            </View>
+
+            <View style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#eee", backgroundColor: "#fff" }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                {premiumFlowers.slice(0, 12).map((p, idx) => (
+                  <View key={p.id} style={{ width: 52, height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.03)", margin: 4, position: "relative" }}>
+                    <Text style={{ fontSize: 24, opacity: 0.35 }}>{p.icon}</Text>
+                    <Text style={{ position: "absolute", right: 4, bottom: 2, fontSize: 12, opacity: 0.9 }}>🔒</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         </View>

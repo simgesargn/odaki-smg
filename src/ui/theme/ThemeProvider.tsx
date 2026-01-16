@@ -1,79 +1,94 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { theme as themeObj, light, dark, ThemeColors } from "../theme";
 
+const KEY_THEME_MODE = "odaki_theme_mode_v1"; // "light" | "dark"
 type ThemeMode = "light" | "dark";
 
-type ThemeColors = {
-  background: string;
-  card: string;
-  text: string;
-  muted: string;
-  border: string;
-  primary: string;
-  danger: string;
-};
-
-type ThemeCtx = {
+type ThemeContextValue = {
   mode: ThemeMode;
   colors: ThemeColors;
+  spacing: any;
+  space: any;
+  radius: any;
+  radii: any;
+  shadow: any;
   setMode: (m: ThemeMode) => void;
   toggle: () => void;
 };
 
-const THEME_KEY = "odaki_theme_mode";
-
-const lightColors: ThemeColors = {
-  background: "#F6F7FB",
-  card: "#FFFFFF",
-  text: "#141416",
-  muted: "#7A7F87",
-  border: "#E6E8EE",
-  primary: "#6C63FF",
-  danger: "#E53935",
+const DEFAULT: ThemeContextValue = {
+  mode: "light",
+  colors: light.colors,
+  spacing: light.spacing,
+  space: light.space,
+  radius: light.radius,
+  radii: light.radii,
+  shadow: light.shadow ?? light.shadows?.md,
+  setMode: () => {},
+  toggle: () => {},
 };
 
-const darkColors: ThemeColors = {
-  background: "#0F1115",
-  card: "#171A21",
-  text: "#F4F6FA",
-  muted: "#A5ADBA",
-  border: "#2A2F3A",
-  primary: "#8C86FF",
-  danger: "#FF5A5F",
-};
-
-const ThemeContext = createContext<ThemeCtx | null>(null);
+const ThemeContext = createContext<ThemeContextValue>(DEFAULT);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mode, setModeState] = useState<ThemeMode>("light");
+  const [colors, setColors] = useState<ThemeColors>(light.colors);
+  const [spacing, setSpacing] = useState<any>(light.spacing);
+  const [space, setSpace] = useState<any>(light.space);
+  const [radius, setRadius] = useState<any>(light.radius);
+  const [radii, setRadii] = useState<any>(light.radii);
+  const [shadow, setShadow] = useState<any>(light.shadow ?? light.shadows?.md);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
-        const saved = await AsyncStorage.getItem(THEME_KEY);
-        if (saved === "light" || saved === "dark") setModeState(saved);
+        const raw = await AsyncStorage.getItem(KEY_THEME_MODE);
+        const m = (raw === "dark" ? "dark" : "light") as ThemeMode;
+        if (!mounted) return;
+        setModeState(m);
+        const src = m === "dark" ? dark : light;
+        setColors(src.colors);
+        setSpacing(src.spacing);
+        setSpace(src.space);
+        setRadius(src.radius);
+        setRadii(src.radii);
+        setShadow(src.shadow ?? src.shadows?.md);
       } catch {
         // ignore
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const setMode = (m: ThemeMode) => {
+  const setMode = async (m: ThemeMode) => {
     setModeState(m);
-    AsyncStorage.setItem(THEME_KEY, m).catch(() => {});
+    const src = m === "dark" ? dark : light;
+    setColors(src.colors);
+    setSpacing(src.spacing);
+    setSpace(src.space);
+    setRadius(src.radius);
+    setRadii(src.radii);
+    setShadow(src.shadow ?? src.shadows?.md);
+    try {
+      await AsyncStorage.setItem(KEY_THEME_MODE, m);
+    } catch {
+      // ignore
+    }
   };
 
   const toggle = () => setMode(mode === "dark" ? "light" : "dark");
 
-  const colors = useMemo(() => (mode === "dark" ? darkColors : lightColors), [mode]);
-
-  const value = useMemo(() => ({ mode, colors, setMode, toggle }), [mode, colors]);
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ mode, colors, spacing, space, radius, radii, shadow, setMode, toggle }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 };
 
-export const useTheme = () => {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
-  return ctx;
-};
+export function useTheme() {
+  return useContext(ThemeContext);
+}

@@ -113,10 +113,9 @@ export const GardenScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* native stack header will show back button */}
       <View style={styles.header}>
-        <Pressable onPress={() => nav.goBack()} style={styles.back}><Text>Geri</Text></Pressable>
         <Text variant="h2">Bahçem</Text>
-        <View style={{ width: 48 }} />
       </View>
 
       <View style={styles.container}>

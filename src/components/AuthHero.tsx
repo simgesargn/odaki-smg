@@ -1,0 +1,13 @@
+// ...existing imports...
+// ...existing code...
+      style={{
+        // ...other styles...
+        ...(theme.shadow?.card ?? {
+          shadowColor: "#000",
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 3,
+        }),
+      }}
+// ...existing code...

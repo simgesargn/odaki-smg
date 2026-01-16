@@ -1,158 +1,133 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Alert, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../ui/Text";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { auth, db } from "../../firebase/firebase";
-import { signOut, deleteUser, onAuthStateChanged } from "firebase/auth";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
-import { collection, query, where, getDocs, writeBatch, deleteDoc, doc } from "firebase/firestore";
-
-const KEY_THEME = "odaki_theme_dark_v1";
-const KEY_LANG = "odaki_lang_v1";
-const KEY_PUSH = "odaki_push_enabled_v1";
+import { useTheme } from "../../ui/ThemeProvider";
 
 export function SettingsScreen() {
   const nav = useNavigation<any>();
-  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
-  const [themeDark, setThemeDark] = useState(false);
-  const [language, setLanguage] = useState<"tr" | "en">("tr");
-  const [pushEnabled, setPushEnabled] = useState(false);
+  const theme = useTheme();
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUid(u?.uid || null));
-    (async () => {
-      try {
-        const t = await AsyncStorage.getItem(KEY_THEME);
-        if (t !== null) setThemeDark(t === "1");
-        const l = await AsyncStorage.getItem(KEY_LANG);
-        if (l === "en" || l === "tr") setLanguage(l);
-        const p = await AsyncStorage.getItem(KEY_PUSH);
-        setPushEnabled(p === null ? true : p === "1");
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => unsub();
-  }, []);
+  // Theme toggle is disabled — UI only
+  const [themeDark] = useState(false);
+
+  // Push and language are local UI state only
+  const [pushEnabled, setPushEnabled] = useState<boolean>(true);
+  const [language, setLanguage] = useState<"tr" | "en">("tr");
 
   const onSignOut = async () => {
-    try {
-      await signOut(auth);
-      nav.reset({ index: 0, routes: [{ name: Routes.Login as any }] });
-    } catch {
-      Alert.alert("Hata", "Çıkış yapılamadı");
-    }
+    Alert.alert("Yakında", "Çıkış yapma özelliği yakında aktif olacak.");
   };
 
   const onDeleteAccount = async () => {
-    if (!uid) return Alert.alert("Hata", "Kullanıcı bulunamadı.");
-    Alert.alert("Onay", "Hesabı silmek istediğinizden emin misiniz?", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Sil",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // delete related docs (best-effort)
-            const batch = writeBatch(db);
-            const collectionsToClear = ["tasks", "focusSessions", "notifications", "aiChats", "users"];
-            for (const col of collectionsToClear) {
-              const q = query(collection(db, col), where("userId", "==", uid));
-              const snaps = await getDocs(q);
-              snaps.forEach((d) => batch.delete(doc(db, col, d.id)));
-            }
-            await batch.commit();
-            // try deleting auth user
-            if (auth.currentUser) {
-              try {
-                await deleteUser(auth.currentUser);
-              } catch (e: any) {
-                Alert.alert("Hesap silme", "Hesap silinemedi. Yeniden kimlik doğrulama gerekebilir.");
-                return;
-              }
-            }
-            Alert.alert("Başarılı", "Hesabınız silindi.");
-            nav.reset({ index: 0, routes: [{ name: Routes.Login as any }] });
-          } catch (e: any) {
-            Alert.alert("Hata", "Hesap silme işleminde hata: " + (e?.message || e?.code || "bilinmeyen"));
-          }
-        },
-      },
-    ]);
+    Alert.alert("Yakında", "Hesap silme özelliği yakında aktif olacak.");
   };
 
-  const toggleTheme = async (v: boolean) => {
-    setThemeDark(v);
-    try {
-      await AsyncStorage.setItem(KEY_THEME, v ? "1" : "0");
-    } catch {}
-  };
-  const togglePush = async (v: boolean) => {
+  const togglePush = (v: boolean) => {
     setPushEnabled(v);
-    try {
-      await AsyncStorage.setItem(KEY_PUSH, v ? "1" : "0");
-    } catch {}
   };
-  const setLang = async (l: "tr" | "en") => {
+
+  const setLang = (l: "tr" | "en") => {
     setLanguage(l);
-    try {
-      await AsyncStorage.setItem(KEY_LANG, l);
-    } catch {}
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Pressable onPress={() => nav.navigate(Routes.RootTabs as any)} style={styles.back}>
-          <Text>Geri</Text>
-        </Pressable>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
+      <View style={[styles.header, { paddingHorizontal: theme.spacing.lg }]}>
         <Text variant="h2">Ayarlar</Text>
-        <View style={{ width: 56 }} />
       </View>
 
-      <View style={styles.container}>
-        <View style={styles.row}>
-          <Text>Tema (Koyu)</Text>
-          <Switch value={themeDark} onValueChange={toggleTheme} />
-        </View>
+      <View style={[styles.container, { paddingHorizontal: theme.spacing.lg }]}>
+        {/* Bildirim Ayarları */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={styles.cardTitle}>Bildirim Ayarları</Text>
 
-        <View style={styles.row}>
-          <Text>Push Bildirimleri</Text>
-          <Switch value={pushEnabled} onValueChange={togglePush} />
-        </View>
+          <View style={styles.row}>
+            <Text>Push Bildirimleri</Text>
+            <Switch value={pushEnabled} onValueChange={togglePush} />
+          </View>
 
-        <View style={{ marginTop: 12 }}>
-          <Text style={{ marginBottom: 8 }}>Dil</Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable onPress={() => setLang("tr")} style={[styles.langBtn, language === "tr" && styles.langActive]}><Text>Türkçe</Text></Pressable>
-            <Pressable onPress={() => setLang("en")} style={[styles.langBtn, language === "en" && styles.langActive]}><Text>English</Text></Pressable>
+          <View style={styles.row}>
+            <Text>Rahatsız Etme (Gece)</Text>
+            <Switch value={false} onValueChange={() => Alert.alert("Yakında", "Bu özellik demo modunda.")} />
+          </View>
+
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ marginBottom: 6 }}>Özet Bildirim</Text>
+            <View style={{ flexDirection: "row" }}>
+              <Pressable onPress={() => setPushEnabled(false)} style={[styles.chip, !pushEnabled && styles.chipActive]}>
+                <Text style={(!pushEnabled && { color: "#fff" })}>Kapalı</Text>
+              </Pressable>
+              <Pressable onPress={() => setPushEnabled(true)} style={[styles.chip, pushEnabled && styles.chipActive, { marginLeft: 8 }]}>
+                <Text style={(pushEnabled && { color: "#fff" })}>Günlük</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
-        <View style={{ height: 20 }} />
+        {/* Dil Ayarları */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={styles.cardTitle}>Dil</Text>
+          <View style={{ flexDirection: "row", marginTop: 8 }}>
+            <Pressable onPress={() => setLang("tr")} style={[styles.langBtn, language === "tr" && styles.langActive]}>
+              <Text>Türkçe</Text>
+            </Pressable>
+            <Pressable onPress={() => setLang("en")} style={[styles.langBtn, language === "en" && styles.langActive, { marginLeft: 8 }]}>
+              <Text>English</Text>
+            </Pressable>
+          </View>
+          <Text variant="muted" style={{ marginTop: 8 }}>Dil seçimi demo amaçlı; gerçek değişiklik yakında.</Text>
+        </View>
 
-        <Pressable style={styles.primary} onPress={onSignOut}>
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Çıkış Yap</Text>
-        </Pressable>
+        {/* Tema (disabled) */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={styles.cardTitle}>Tema</Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text variant="muted">Yakında</Text>
+              <Switch value={themeDark} onValueChange={() => {}} disabled />
+            </View>
+          </View>
+          <Text variant="muted" style={{ marginTop: 8 }}>
+            Tema yönetimi şu an devre dışı. Koyu tema yakında aktif olacak.
+          </Text>
+        </View>
 
-        <Pressable style={[styles.danger, { marginTop: 12 }]} onPress={onDeleteAccount}>
-          <Text style={{ color: "#fff" }}>Hesabı Sil</Text>
-        </Pressable>
+        {/* Hesap */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={styles.cardTitle}>Hesap</Text>
+          <View style={{ marginTop: 8 }}>
+            <Text variant="muted">E-posta: { /* gösterilecek e-posta yoksa gizli */ } —</Text>
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <Pressable style={[styles.primary]} onPress={onSignOut}>
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Çıkış Yap</Text>
+            </Pressable>
+
+            <Pressable style={[styles.danger, { marginTop: 8 }]} onPress={onDeleteAccount}>
+              <Text style={{ color: "#fff" }}>Hesabı Sil</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
-  back: { padding: 8 },
-  container: { padding: 16 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" },
+  safe: { flex: 1 },
+  header: { paddingVertical: 12 },
+  container: { paddingTop: 12 },
+  card: { padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
+  cardTitle: { fontWeight: "700", marginBottom: 8 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
   langBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#F3F4F6" },
   langActive: { backgroundColor: "#EDE9FE" },
-  primary: { marginTop: 14, backgroundColor: "#6C5CE7", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-  danger: { marginTop: 8, backgroundColor: "#ef4444", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "#F3F4F6" },
+  chipActive: { backgroundColor: "#E9E7FF" },
+  primary: { backgroundColor: "#6C5CE7", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  danger: { backgroundColor: "#ef4444", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
 });

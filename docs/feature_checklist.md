@@ -1,0 +1,11 @@
+Feature checklist (odaki)
+- Auth (login/register): mevcut ✅
+- Firestore koleksiyonları: users, tasks, focusSessions, aiChats, notifications — kodda kullanılıyor ✅
+- Tasks CRUD: korundu (dokunulmadı) ✅
+- Focus timer + sessions: korundu ✅
+- Garden / flowers (demo fallback): eklendi/fallback ✅
+- Friends (liste + add modal demo): eklendi ✅
+- Notifications settings + list (demo fallback): eklendi ✅
+- Settings: tema toggle (global), dil seçimi (persist): eklendi ✅
+- Dark theme: ThemeProvider + persist ✅
+- Odi AI chat: değiştirilmedi (balon kontrast küçük tweak opsiyonel) ✅

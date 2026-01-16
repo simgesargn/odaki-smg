@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Pressable, StyleSheet, Switch } from "react-native";
+import { View, StyleSheet, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Text } from "../../ui/Text";
@@ -40,10 +40,9 @@ export function PrivacyScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* header handled by native stack header */}
       <View style={styles.header}>
-        <Pressable onPress={() => nav.navigate(Routes.RootTabs as any)} style={styles.back}><Text>Geri</Text></Pressable>
         <Text variant="h2">Gizlilik</Text>
-        <View style={{ width: 56 }} />
       </View>
 
       <View style={styles.container}>

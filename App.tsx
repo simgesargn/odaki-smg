@@ -1,6 +1,6 @@
 import React from "react";
 import { enableScreens } from "react-native-screens";
-import { ThemeProvider } from "./src/ui/theme/ThemeProvider";
+import { ThemeProvider } from "./src/ui/ThemeProvider";
 import { I18nProvider } from "./src/i18n/I18nProvider";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
