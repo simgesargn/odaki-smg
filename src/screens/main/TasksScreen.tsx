@@ -61,11 +61,6 @@ export const TasksScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubAuth = auth.onAuthStateChanged((u) => setUid(u?.uid || null));
-    return () => unsubAuth();
-  }, []);
-
-  useEffect(() => {
     if (!uid) {
       setTasks([]);
       return;

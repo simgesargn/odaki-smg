@@ -16,6 +16,12 @@ import { FocusScreen } from "../screens/main/FocusScreen";
 import { OdiChatScreen } from "../screens/main/OdiChatScreen";
 import { StatsScreen } from "../screens/main/StatsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
+import { PrivacyScreen } from "../screens/stack/PrivacyScreen";
+import { SettingsScreen } from "../screens/stack/SettingsScreen";
+import { NotificationsScreen } from "../screens/stack/NotificationsScreen";
+import { PremiumScreen } from "../screens/stack/PremiumScreen";
+import { GardenScreen } from "../screens/stack/GardenScreen";
+import { FriendsScreen } from "../screens/stack/FriendsScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,6 +35,7 @@ function MainTabs() {
       <Tab.Screen name={Routes.Odi} component={OdiChatScreen} />
       <Tab.Screen name={Routes.Stats} component={StatsScreen} />
       <Tab.Screen name={Routes.Profile} component={ProfileScreen} />
+      <Tab.Screen name={Routes.Friends} component={FriendsScreen} />
     </Tab.Navigator>
   );
 }
@@ -72,6 +79,12 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name={Routes.Login} component={LoginScreen} />
       <Stack.Screen name={Routes.Register} component={RegisterScreen} />
       <Stack.Screen name={Routes.RootTabs} component={MainTabs} />
+      <Stack.Screen name={Routes.Notifications} component={NotificationsScreen} />
+      <Stack.Screen name={Routes.Settings} component={SettingsScreen} />
+      <Stack.Screen name={Routes.Privacy} component={PrivacyScreen} />
+      <Stack.Screen name={Routes.Garden} component={GardenScreen} />
+      <Stack.Screen name={Routes.Premium} component={PremiumScreen} />
+      <Stack.Screen name={Routes.Friends} component={FriendsScreen} />
     </Stack.Navigator>
   );
 };

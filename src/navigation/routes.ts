@@ -16,10 +16,14 @@ export const Routes = {
   Odi: "Odi",
   Stats: "Stats",
   Profile: "Profile",
+  Friends: "Friends",
 
   // stack extras
   Notifications: "Notifications",
   Settings: "Settings",
+  Privacy: "Privacy",
+  Garden: "Garden",
+  Premium: "Premium",
 } as const;
 
 export type RouteName = (typeof Routes)[keyof typeof Routes];

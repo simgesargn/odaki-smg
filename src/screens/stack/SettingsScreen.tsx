@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Alert, Switch } from "react-native";
-import { Screen } from "../../ui/Screen";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../ui/Text";
 import { auth, db } from "../../firebase/firebase";
 import { signOut, deleteUser } from "firebase/auth";
@@ -9,9 +9,7 @@ import { Routes } from "../../navigation/routes";
 import { collection, query, where, getDocs, writeBatch, deleteDoc, doc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
-// (Bu dosyada UI ve çıkış/hesap silme mantığı zaten mevcut; geri butonu için RootNavigator'da headerShown true olarak ayarlandı)
-
-export const SettingsScreen: React.FC = () => {
+export function SettingsScreen() {
   const nav = useNavigation<any>();
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
   const [themeDark, setThemeDark] = useState(false);
@@ -72,51 +70,22 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <Screen style={styles.container}>
-      <Text variant="h1">Ayarlar</Text>
-
-      <View style={styles.section}>
-        <Text variant="h2">Görünüm</Text>
-        <View style={styles.row}>
-          <Text>Gece Modu</Text>
-          <Switch value={themeDark} onValueChange={setThemeDark} />
-        </View>
-        <View style={styles.row}>
-          <Text>Dil</Text>
-          <Pressable onPress={() => setLanguage(language === "tr" ? "en" : "tr")}>
-            <Text variant="muted">{language === "tr" ? "TR" : "EN"}</Text>
-          </Pressable>
-        </View>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        <Pressable onPress={() => nav.goBack()} style={styles.back}>
+          <Text>Geri</Text>
+        </Pressable>
+        <Text style={styles.title}>Ayarlar</Text>
+        <Text style={styles.subtitle}>Uygulama ayarları ve tercihleri burada yer alacak. Yakında.</Text>
       </View>
-
-      <View style={styles.section}>
-        <Text variant="h2">Bildirimler</Text>
-        <View style={styles.row}>
-          <Text>Push Bildirimleri</Text>
-          <Switch value={pushEnabled} onValueChange={setPushEnabled} />
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text variant="h2">Gizlilik ve Destek</Text>
-        <Pressable onPress={() => Alert.alert("Gizlilik Politikası", "Gizlilik politikası burada gösterilebilir.")}><Text variant="muted">Gizlilik Politikası</Text></Pressable>
-        <Pressable onPress={() => Alert.alert("Yardım ve Destek", "Yardım bilgileri burada gösterilebilir.")} style={{ marginTop: 8 }}><Text variant="muted">Yardım ve Destek</Text></Pressable>
-      </View>
-
-      <View style={styles.section}>
-        <Text variant="h2">Hesap</Text>
-        <Pressable onPress={() => Alert.alert("Şifre Değiştir", "Şifre değiştirme akışı burada olmalı.")}><Text variant="muted">Şifre Değiştir</Text></Pressable>
-
-        <Pressable onPress={onSignOut} style={{ marginTop: 8 }}><Text variant="muted">Çıkış Yap</Text></Pressable>
-
-        <Pressable onPress={onDeleteAccount} style={{ marginTop: 8 }}><Text variant="muted">Hesabı Devre Dışı Bırak / Sil</Text></Pressable>
-      </View>
-    </Screen>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#fff" },
   container: { padding: 16 },
-  section: { marginTop: 12 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  back: { marginBottom: 12 },
+  title: { fontSize: 20, fontWeight: "700" },
+  subtitle: { marginTop: 8, color: "#6b7280" },
 });

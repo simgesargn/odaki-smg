@@ -100,7 +100,7 @@ export const FocusScreen: React.FC = () => {
 
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <Pressable
-            onPress={() => nav.navigate(Routes.Garden)}
+            onPress={() => nav.navigate(Routes.Garden as any)}
             style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: "rgba(120,120,255,0.12)" }}
           >
             <Text>🌿 Bahçem</Text>
@@ -134,7 +134,7 @@ export const FocusScreen: React.FC = () => {
         <Text variant="muted" style={{ marginBottom: 10 }}>
           Bahçeni ziyaret et ve ödüllerini gör.
         </Text>
-        <Button title="Bahçeye Git" onPress={() => nav.navigate(Routes.Garden)} />
+        <Button title="Bahçeye Git" onPress={() => nav.navigate(Routes.Garden as any)} />
       </Card>
 
       {/* Premium flowers (dummy) */}

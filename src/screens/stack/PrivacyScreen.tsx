@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 
-export function NotificationsScreen() {
+export function PrivacyScreen() {
   const nav = useNavigation<any>();
   return (
     <SafeAreaView style={styles.safe}>
@@ -11,8 +11,8 @@ export function NotificationsScreen() {
         <Pressable onPress={() => nav.goBack()} style={styles.back}>
           <Text>Geri</Text>
         </Pressable>
-        <Text style={styles.title}>Bildirimler</Text>
-        <Text style={styles.subtitle}>Bildirim geçmişi ve tercihleri burada görünecek. Yakında.</Text>
+        <Text style={styles.title}>Gizlilik</Text>
+        <Text style={styles.subtitle}>Gizlilik ayarları ve politika burada gösterilecek. Yakında.</Text>
       </View>
     </SafeAreaView>
   );

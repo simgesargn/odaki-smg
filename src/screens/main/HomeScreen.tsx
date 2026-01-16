@@ -2,20 +2,47 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, StyleSheet, Pressable, FlatList } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
-import { useNavigation, DrawerActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { theme, colors } from "../../ui/theme";
 import { priorityLabel, priorityColors } from "../../ui/priority";
 import { loadFocusStats } from "../../features/focus/focusStore";
 import { auth, db } from "../../firebase/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { useUser } from "../../context/UserContext";
+
+// yardımcı: farklı dueAt formatlarını milis'e çevir
+function dueToMillis(due: any): number | null {
+  if (!due) return null;
+  if (due?.toDate && typeof due.toDate === "function") return due.toDate().getTime();
+  if (typeof due === "number") return due;
+  if (due instanceof Date) return due.getTime();
+  if (typeof due === "string") {
+    const n = Date.parse(due);
+    return isNaN(n) ? null : n;
+  }
+  return null;
+}
+
+function isSameLocalDayMillis(ms?: number | null) {
+  if (!ms) return false;
+  const d = new Date(ms);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+function normalizePriority(p: any): "low" | "medium" | "high" {
+  if (!p) return "medium";
+  const s = String(p).toLowerCase();
+  if (s === "high" || s === "yüksek") return "high";
+  if (s === "low" || s === "düşük") return "low";
+  return "medium";
+}
 
 type TaskItem = {
   id: string;
   title: string;
-  priority?: "Yüksek" | "Orta" | "Düşük";
+  priority?: "low" | "medium" | "high";
   due?: string;
   done?: boolean;
 };
@@ -24,7 +51,6 @@ export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
   const [filter, setFilter] = useState<"Tümü" | "Bugün" | "Yüksek">("Tümü");
 
@@ -47,11 +73,8 @@ export const HomeScreen: React.FC = () => {
     };
   }, []);
 
-  // Subscribe auth -> tasks realtime
-  useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => setUid(u?.uid ?? null));
-    return () => unsubAuth();
-  }, []);
+  const { user } = useUser();
+  const uid = user?.uid ?? null;
 
   useEffect(() => {
     if (!uid) {
@@ -68,8 +91,10 @@ export const HomeScreen: React.FC = () => {
           items.push({
             id: d.id,
             title: data.title ?? "Unnamed",
-            priority: data.priority ?? "Orta",
-            due: data.due ?? "",
+            // normalize priority to internal keys
+            priority: normalizePriority(data.priority),
+            // keep raw due value but parsing helpers will handle types
+            due: data.due ?? null,
             done: Boolean(data.completed ?? data.done ?? false),
           });
         });
@@ -84,8 +109,12 @@ export const HomeScreen: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     if (filter === "Tümü") return tasks;
-    if (filter === "Bugün") return tasks.filter((t) => t.due?.toLowerCase().includes("bugün"));
-    if (filter === "Yüksek") return tasks.filter((t) => t.priority === "Yüksek");
+    if (filter === "Bugün")
+      return tasks.filter((t) => {
+        const ms = dueToMillis(t.due);
+        return isSameLocalDayMillis(ms);
+      });
+    if (filter === "Yüksek") return tasks.filter((t) => t.priority === "high");
     return tasks;
   }, [tasks, filter]);
 
@@ -116,7 +145,7 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.topSubtitle}>Günlük hedeflerine odaklan.</Text>
           </View>
 
-          <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={styles.topIcon}>
+          <Pressable onPress={() => navigation.navigate(Routes.Settings as any)} style={styles.topIcon}>
             <Text style={{ fontSize: 18 }}>☰</Text>
           </Pressable>
         </View>
@@ -233,7 +262,7 @@ const styles = StyleSheet.create({
   kpiValue: { fontSize: 22, fontWeight: "800", color: colors.text },
   kpiLabel: { fontSize: 12, color: colors.muted, marginTop: 4 },
 
-  filterPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  filterPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, marginHorizontal: 6 },
 
   card: {
     backgroundColor: "#fff",
