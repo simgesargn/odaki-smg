@@ -5,6 +5,7 @@ import { Card } from "../../ui/Card";
 import { Button } from "../../ui/Button";
 import { Routes } from "../../navigation/routes";
 import { useNavigation } from "@react-navigation/native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   loadFocusState,
   setSelectedMinutes,
@@ -20,6 +21,7 @@ const formatMMSS = (sec: number) => `${pad2(Math.floor(sec / 60))}:${pad2(sec % 
 
 export const FocusScreen: React.FC = () => {
   const nav = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<any>(null);
@@ -93,157 +95,89 @@ export const FocusScreen: React.FC = () => {
     type === "tohum" ? "🌱" : type === "lotus" ? "🪷" : type === "aycicegi" ? "🌻" : "🌸";
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
-      {/* Header actions */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <Text variant="h2">Odak</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+        {/* top spacing to avoid overlap with status bar/header */}
+        <View style={{ height: insets.top || 12 }} />
 
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-          <Pressable
-            onPress={() => nav.navigate(Routes.Garden as any)}
-            style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: "rgba(120,120,255,0.12)" }}
-          >
-            <Text>🌿 Bahçem</Text>
-          </Pressable>
-
-          <Pressable onPress={() => nav.navigate(Routes.FocusSettings)} style={{ padding: 8 }}>
-            <Text style={{ fontSize: 18 }}>⚙️</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Stats */}
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
-        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
-          <Text variant="muted">Toplam</Text>
-          <Text style={{ fontWeight: "700" }}>{totalHoursText}</Text>
-        </Card>
-        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
-          <Text variant="muted">Seri</Text>
-          <Text style={{ fontWeight: "700" }}>{streak}</Text>
-        </Card>
-        <Card style={{ flex: 1, padding: 12, alignItems: "center" }}>
-          <Text variant="muted">Çiçek</Text>
-          <Text style={{ fontWeight: "700" }}>{flowersEarned}</Text>
-        </Card>
-      </View>
-
-      {/* Garden quick card */}
-      <Card style={{ padding: 14, marginBottom: 14 }}>
-        <Text style={{ fontWeight: "700", marginBottom: 6 }}>Bahçem</Text>
-        <Text variant="muted" style={{ marginBottom: 10 }}>
-          Bahçeni ziyaret et ve ödüllerini gör.
-        </Text>
-        <Button title="Bahçeye Git" onPress={() => nav.navigate(Routes.Garden as any)} />
-      </Card>
-
-      {/* Premium flowers (dummy) */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <Text style={{ fontWeight: "700" }}>Premium Çiçekler</Text>
-        <Pressable
-          onPress={() => nav.navigate(Routes.Premium as any)}
-          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: "#E5D7FF", backgroundColor: "rgba(110,90,255,0.08)" }}
-        >
-          <Text style={{ fontWeight: "700", color: "#6E5AFF" }}>Premium'a Geç</Text>
-        </Pressable>
-      </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
-        {[
-          { id: "p1", icon: "🪷", label: "Lotus" },
-          { id: "p2", icon: "🌻", label: "Ayçiçeği" },
-          { id: "p3", icon: "🪻", label: "Orkide" },
-        ].map((p) => (
-          <Pressable
-            key={p.id}
-            onPress={() => Alert.alert("Premium", "Premium'a geçme akışı demo amaçlıdır.")}
-            style={{
-              flex: 1,
-              marginHorizontal: 6,
-              borderRadius: 12,
-              padding: 12,
-              alignItems: "center",
-              backgroundColor: "#fff",
-              opacity: 0.6,
-            }}
-          >
-            <Text style={{ fontSize: 24 }}>{p.icon}</Text>
-            <Text variant="muted" style={{ marginTop: 8 }}>{p.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Session card */}
-      <Card style={{ padding: 16, marginBottom: 12, alignItems: "center" }}>
-        <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 6 }}>Tohum</Text>
-        <Text variant="muted" style={{ marginBottom: 10 }}>
-          Hedef: {selected} dk
-        </Text>
-
-        <Text style={{ fontSize: 40, fontWeight: "900", marginBottom: 12 }}>
-          {formatMMSS(remainingSec)}
-        </Text>
-
-        <Button title={running ? "Odaklan..." : "Çiçeği Büyütmeye Başla"} onPress={onStart} disabled={startDisabled} />
-
-        <Pressable onPress={onTestFinish} style={{ marginTop: 10, padding: 8 }}>
-          <Text variant="muted">Bitir</Text>
-        </Pressable>
-        {/* Premium feature hint: setting-skip */}
-        <View style={{ height: 8 }} />
-        <Pressable onPress={() => nav.navigate(Routes.Premium as any)} style={{ padding: 6 }}>
-          <Text variant="muted">Ayar atlama hakkı: Premium</Text>
-        </Pressable>
-      </Card>
-
-      {/* Minutes */}
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
-        {[15, 25, 45, 60].map((m) => {
-          const active = m === selected;
-          return (
+        {/* Header actions row */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text variant="h2">Odak</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Pressable
-              key={m}
-              onPress={() => pick(m)}
-              disabled={running}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 999,
-                alignItems: "center",
-                backgroundColor: active ? "rgba(110, 90, 255, 0.9)" : "rgba(0,0,0,0.04)",
-                opacity: running ? 0.6 : 1,
-              }}
+              onPress={() => nav.navigate(Routes.Garden as any)}
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: "rgba(120,120,255,0.08)", marginRight: 8 }}
             >
-              <Text style={{ color: active ? "white" : "black", fontWeight: "700" }}>{m} dk</Text>
+              <Text>🌿 Bahçem</Text>
             </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Collection (simple) */}
-      <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
-      <Card style={{ padding: 12 }}>
-        {(!state?.flowers || state.flowers.length === 0) ? (
-          <Text variant="muted">Henüz çiçeğin yok. Odak oturumunu tamamlayınca burada görünecek.</Text>
-        ) : (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {state.flowers.slice(0, 12).map((f: any, idx: number) => (
-              <View
-                key={`${f?.id ?? f?.type ?? f?.name ?? "flower"}-${idx}`}
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 999,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "rgba(0,0,0,0.05)",
-                }}
-              >
-                <Text>{f.type === "tohum" ? "🌱" : f.type === "lotus" ? "🪷" : f.type === "aycicegi" ? "🌻" : "🌸"}</Text>
-              </View>
-            ))}
+            <Pressable onPress={() => nav.navigate(Routes.FocusSettings as any)} style={{ padding: 8 }}>
+              <Text style={{ fontSize: 18 }}>⚙️</Text>
+            </Pressable>
           </View>
-        )}
-      </Card>
-    </ScrollView>
+        </View>
+
+        {/* Centered timer + controls */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <View style={{ alignItems: "center", marginBottom: 16 }}>
+            <View style={{ width: "100%", maxWidth: 480, alignItems: "center" }}>
+              <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 6 }}>Tohum</Text>
+              <Text variant="muted">Hedef: {selected} dk</Text>
+              <Text style={{ fontSize: 56, fontWeight: "900", marginVertical: 16 }}>{formatMMSS(remainingSec)}</Text>
+              <View style={{ flexDirection: "row", width: "100%", justifyContent: "center", gap: 12 }}>
+                <Pressable onPress={onStart} disabled={startDisabled} style={{ paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, backgroundColor: startDisabled ? "#ccc" : theme.colors.primary }}>
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>{running ? "Odaklan..." : "Başlat"}</Text>
+                </Pressable>
+                <Pressable onPress={onTestFinish} style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: "#eee" }}>
+                  <Text>Bitir</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          {/* Minutes selector */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 14 }}>
+            {[15, 25, 45, 60].map((m) => {
+              const active = m === selected;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => pick(m)}
+                  disabled={running}
+                  style={{
+                    flex: 1,
+                    marginHorizontal: 6,
+                    paddingVertical: 12,
+                    borderRadius: 999,
+                    alignItems: "center",
+                    backgroundColor: active ? theme.colors.primary : "rgba(0,0,0,0.04)",
+                    opacity: running ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: active ? "#fff" : "#111", fontWeight: "700" }}>{m} dk</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* small collection + stats kept but simplified layout */}
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontWeight: "700", marginBottom: 8 }}>Çiçek Koleksiyonum</Text>
+            <View style={{ padding: 12, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#eee" }}>
+              {(!state?.flowers || state.flowers.length === 0) ? (
+                <Text variant="muted">Henüz çiçeğin yok. Odak oturumunu tamamlayınca burada gözükecek.</Text>
+              ) : (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  {state.flowers.slice(0, 12).map((f: any, idx: number) => (
+                    <View key={`${f?.id ?? f?.type ?? idx}`} style={{ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.05)", margin: 4 }}>
+                      <Text>{f.type === "tohum" ? "🌱" : f.type === "lotus" ? "🪷" : f.type === "aycicegi" ? "🌻" : "🌸"}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };

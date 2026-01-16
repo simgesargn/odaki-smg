@@ -136,49 +136,58 @@ export const StatsScreen: React.FC = () => {
 
   return (
     <Screen>
-      {/* Premium banner (flex layout) */}
+      {/* Premium banner (daha kompakt) */}
       <View style={{ marginHorizontal: 16, marginTop: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFF", borderRadius: 12, padding: 12 }}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={{ fontWeight: "700" }}>Gelişmiş istatistikler Premium'da</Text>
-            <Text variant="muted" style={{ marginTop: 4 }}>Daha detaylı analizler için Premium'a geçin.</Text>
+        <View style={[styles.promoCard, { backgroundColor: "#fff" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ fontSize: 20, marginRight: 10 }}>⭐</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: "700", fontSize: 15 }}>Gelişmiş istatistikler Premium'da</Text>
+              <Text variant="muted" style={{ marginTop: 4, fontSize: 13 }}>Detaylı analizler ve özel çiçekler için Premium'a geçin.</Text>
+            </View>
           </View>
-          <Pressable
-            onPress={() => navigation.navigate(Routes.Premium as any)}
-            style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, alignSelf: "center" }}
-          >
-            <Text style={{ fontWeight: "700" }}>Premium'a Geç</Text>
+          <Pressable onPress={() => navigation.navigate(Routes.Premium as any)} style={styles.promoBtn}>
+            <Text style={{ color: "#fff", fontWeight: "700" }}>Premium</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.headerRow}>
+      <View style={{ marginHorizontal: 16, marginTop: 16 }}>
         <Text variant="h2">İstatistikler</Text>
-        <View style={styles.tabsRow}>
-          <Pressable style={[styles.tab, tab === "today" && styles.tabActive]} onPress={() => setTab("today")}>
-            <Text style={tab === "today" ? styles.tabTextActive : styles.tabText}>Bugün</Text>
-          </Pressable>
-          <Pressable style={[styles.tab, tab === "weekly" && styles.tabActive]} onPress={() => setTab("weekly")}>
-            <Text style={tab === "weekly" ? styles.tabTextActive : styles.tabText}>Haftalık</Text>
-          </Pressable>
-          <Pressable style={[styles.tab, tab === "monthly" && styles.tabActive]} onPress={() => setTab("monthly")}>
-            <Text style={tab === "monthly" ? styles.tabTextActive : styles.tabText}>Aylık</Text>
-          </Pressable>
+        <View style={styles.tabsWrap}>
+          {(
+            [
+              { key: "today", label: "Bugün" },
+              { key: "weekly", label: "Haftalık" },
+              { key: "monthly", label: "Aylık" },
+            ] as const
+          ).map((t) => (
+            <Pressable
+              key={t.key}
+              onPress={() => setTab(t.key as any)}
+              style={[styles.tabBtn, tab === (t.key as any) ? styles.tabActive : styles.tabInactive]}
+            >
+              <Text style={tab === (t.key as any) ? styles.tabTextActive : styles.tabText}>{t.label}</Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* KPI'lar */}
-        <View style={styles.row}>
-          <View style={styles.statCard}>
+        {/* KPI kartları: eşit genişlik, ikonlu ve sığan metin */}
+        <View style={styles.kpiRow}>
+          <View style={[styles.statCard, { flex: 1 }]}>
+            <Text style={styles.kpiIcon}>⏱️</Text>
             <Text numberOfLines={2} style={styles.statLabel}>Toplam Odak (dk)</Text>
             <Text style={styles.statBig}>{currentMetrics.totalMinutes}</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { flex: 1 }]}>
+            <Text style={styles.kpiIcon}>🔥</Text>
             <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan oturum</Text>
             <Text style={styles.statBig}>{currentMetrics.completedSessions}</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { flex: 1 }]}>
+            <Text style={styles.kpiIcon}>✅</Text>
             <Text numberOfLines={2} style={styles.statLabel}>Tamamlanan görev</Text>
             <Text style={styles.statBig}>{currentMetrics.completedTasks}</Text>
           </View>
@@ -214,7 +223,7 @@ export const StatsScreen: React.FC = () => {
               return { label, minutes, completedTasks };
             });
             return days.map((d, idx) => (
-              <View key={d.label + idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, marginBottom: 8 }}>
+              <View key={d.label + idx} style={styles.dayRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: "700" }}>{d.label}</Text>
                   <Text variant="muted" style={{ marginTop: 4 }}>{d.minutes} dk odak • {d.completedTasks} görev</Text>
@@ -228,12 +237,12 @@ export const StatsScreen: React.FC = () => {
         </View>
 
         {/* Mini özet: Seri ve Çiçek */}
-        <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
-          <View style={[styles.card, { flex: 1, padding: 12, alignItems: "center" }]}>
+        <View style={{ flexDirection: "row", marginTop: 12, gap: 12 }}>
+          <View style={[styles.statMini, { flex: 1 }]}>
             <Text variant="muted">Seri</Text>
             <Text style={{ fontWeight: "800", fontSize: 20 }}>{focusStats.streakDays}</Text>
           </View>
-          <View style={[styles.card, { flex: 1, padding: 12, alignItems: "center" }]}>
+          <View style={[styles.statMini, { flex: 1 }]}>
             <Text variant="muted">Çiçek</Text>
             <Text style={{ fontWeight: "800", fontSize: 20 }}>{focusStats.flowersEarned}</Text>
           </View>
@@ -328,4 +337,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.04)",
   },
+  promoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  promoBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.primary },
+  tabsWrap: { flexDirection: "row", marginTop: 12, justifyContent: "center", gap: 8 },
+  tabBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  tabActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  tabInactive: { backgroundColor: "#F3F4F6", borderColor: "#EEE" },
+  tabText: { color: theme.colors.text },
+  tabTextActive: { color: "#fff", fontWeight: "700" },
+
+  kpiRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  kpiIcon: { fontSize: 20, marginBottom: 6, textAlign: "center" },
+  statCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  statLabel: { fontSize: 12, color: "#6b7280", marginBottom: 6, textAlign: "center" },
+  statBig: { fontSize: 20, fontWeight: "800", color: theme.colors.text },
+
+  dayRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, marginBottom: 8, borderWidth: 1, borderColor: "#f3f3f3" },
+
+  statMini: { backgroundColor: "#fff", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#eee" },
 });

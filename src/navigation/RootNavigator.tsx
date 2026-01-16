@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Text } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUser } from "../context/UserContext";
 import { getBool } from "../storage/local";
 import { STORAGE_KEYS } from "../storage/keys";
@@ -40,14 +41,27 @@ const Tab = createBottomTabNavigator();
 
 // Tab bar tek merkezde, kısa label + emoji ikon + stil
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const baseHeight = 56;
+  const tabBarHeight = baseHeight + (insets.bottom || 8);
+
   return (
     <Tab.Navigator
+      sceneContainerStyle={{ paddingBottom: tabBarHeight }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarStyle: { height: 66, paddingBottom: 8 },
-        tabBarLabelStyle: { fontSize: 10 },
-        tabBarItemStyle: { paddingTop: 4 },
+        tabBarStyle: {
+          height: tabBarHeight,
+          paddingBottom: insets.bottom ? insets.bottom + 8 : 12,
+          paddingTop: 6,
+          borderTopWidth: 1,
+          borderTopColor: "#eee",
+        },
+        tabBarLabelStyle: { fontSize: 12, marginBottom: 0 },
+        tabBarItemStyle: { paddingTop: 4, paddingBottom: 2, minHeight: 48 },
+        tabBarIconStyle: { marginBottom: 0 },
+        tabBarAllowFontScaling: false,
       }}
     >
       <Tab.Screen
@@ -86,7 +100,7 @@ function MainTabs() {
         name={Routes.Stats}
         component={StatsScreen}
         options={{
-          tabBarLabel: "İstat",
+          tabBarLabel: "İstatistik",
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📊</Text>,
         }}
       />
@@ -98,14 +112,7 @@ function MainTabs() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👤</Text>,
         }}
       />
-      <Tab.Screen
-        name={Routes.Friends}
-        component={FriendsScreen}
-        options={{
-          tabBarLabel: "Ark",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👥</Text>,
-        }}
-      />
+      {/* Friends tab removed from bottom tabs (remains reachable via Menu / stack if needed) */}
     </Tab.Navigator>
   );
 }
@@ -150,8 +157,8 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name={Routes.Register} component={RegisterScreen} />
       <Stack.Screen name={Routes.RootTabs} component={MainTabs} />
 
-      {/* Menu opens as modal */}
-      <Stack.Screen name={Routes.Menu} component={MenuScreen} options={{ presentation: "transparentModal" }} />
+      {/* Menu as normal stack screen (not modal) */}
+      <Stack.Screen name={Routes.Menu} component={MenuScreen} />
 
       {/* Stack screens — overrides for header on screens that need back button */}
       <Stack.Screen
@@ -172,6 +179,12 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name={Routes.Garden}
         component={GardenScreen}
+        options={{ headerShown: true, headerBackTitleVisible: false }}
+      />
+      {/* Friends reachable via stack so menu can navigate to it */}
+      <Stack.Screen
+        name={Routes.Friends}
+        component={FriendsScreen}
         options={{ headerShown: true, headerBackTitleVisible: false }}
       />
       <Stack.Screen

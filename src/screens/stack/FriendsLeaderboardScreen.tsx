@@ -1,113 +1,80 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
-import { Screen } from "../../ui/Screen";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, FlatList, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../ui/Text";
-import { useTheme } from "../../ui/theme/ThemeProvider";
+import { db } from "../../firebase/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 
-export const FriendsLeaderboardScreen: React.FC = () => {
-  const { colors } = useTheme();
-  const [range, setRange] = useState<"weekly" | "monthly" | "all">("weekly");
+type Row = { id: string; name: string; score: number };
+
+const SAMPLE: Row[] = [
+  { id: "s1", name: "Ayşe", score: 120 },
+  { id: "s2", name: "Mehmet", score: 98 },
+  { id: "s3", name: "Ece", score: 75 },
+];
+
+export function FriendsLeaderboardScreen() {
+  const nav = useNavigation<any>();
+  const [rows, setRows] = useState<Row[]>(SAMPLE);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    try {
+      const col = collection(db, "users");
+      unsub = onSnapshot(
+        col,
+        (snap) => {
+          const arr: Row[] = [];
+          snap.forEach((d) => {
+            const data: any = d.data();
+            arr.push({ id: d.id, name: data?.username ?? data?.displayName ?? data?.email?.split?.("@")?.[0] ?? "Kullanıcı", score: Number(data?.score ?? 0) });
+          });
+          arr.sort((a, b) => b.score - a.score);
+          setRows(arr.slice(0, 50));
+          setLoading(false);
+        },
+        () => {
+          setRows(SAMPLE);
+          setLoading(false);
+        }
+      );
+    } catch {
+      setRows(SAMPLE);
+      setLoading(false);
+    }
+    return () => { if (unsub) unsub(); };
+  }, []);
 
   return (
-    <Screen style={{ padding: 16 }}>
-      {/* fake gradient header */}
-      <View style={styles.gradientHeader}>
-        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 20 }}>Lider Tablosu</Text>
-        <Text variant="muted" style={{ color: "#fff", marginTop: 6 }}>
-          Arkadaşlarınla performans karşılaştırması
-        </Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Pressable onPress={() => nav.navigate(Routes.RootTabs as any)} style={styles.back}><Text>Geri</Text></Pressable>
+        <Text variant="h2">Lider Tablosu</Text>
+        <View style={{ width: 56 }} />
       </View>
 
-      {/* segmented */}
-      <View style={{ flexDirection: "row", marginTop: 14, gap: 8 }}>
-        <Pressable
-          style={[styles.segmentPill, range === "weekly" ? { backgroundColor: colors.primary } : { backgroundColor: "#F3F4F6" }]}
-          onPress={() => setRange("weekly")}
-        >
-          <Text style={range === "weekly" ? styles.segmentTextActive : styles.segmentText}>Haftalık</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.segmentPill, range === "monthly" ? { backgroundColor: colors.primary } : { backgroundColor: "#F3F4F6" }]}
-          onPress={() => setRange("monthly")}
-        >
-          <Text style={range === "monthly" ? styles.segmentTextActive : styles.segmentText}>Aylık</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.segmentPill, range === "all" ? { backgroundColor: colors.primary } : { backgroundColor: "#F3F4F6" }]}
-          onPress={() => setRange("all")}
-        >
-          <Text style={range === "all" ? styles.segmentTextActive : styles.segmentText}>Tüm Zamanlar</Text>
-        </Pressable>
-      </View>
-
-      {/* sample leader row */}
-      <View style={[styles.card, { marginTop: 14, backgroundColor: colors.card }]}>
-        <View style={styles.leaderRow}>
-          <Text style={{ fontSize: 18 }}>👑</Text>
-          <View style={{ width: 12 }} />
-          <View style={[styles.avatar, { backgroundColor: "#F0E9FF" }]}>
-            <Text style={{ fontWeight: "700" }}>S</Text>
+      <FlatList
+        data={rows}
+        keyExtractor={(r) => r.id}
+        contentContainerStyle={{ padding: 16 }}
+        renderItem={({ item, index }) => (
+          <View style={styles.row}>
+            <Text style={{ fontWeight: "700" }}>{index + 1}. {item.name}</Text>
+            <Text variant="muted">{item.score} pts</Text>
           </View>
-          <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={{ fontWeight: "700" }}>Simge Sargın</Text>
-            <Text variant="muted" style={{ marginTop: 4 }}>
-              Sen
-            </Text>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={{ fontWeight: "700" }}>0 görev · 0.0 saat · 0 puan</Text>
-          </View>
-        </View>
-
-        <View style={{ height: 12 }} />
-
-        <View style={[styles.infoCard, { backgroundColor: "#fff" }]}>
-          <Text style={{ fontWeight: "700" }}>Puan Hesaplama</Text>
-          <Text variant="muted" style={{ marginTop: 8 }}>
-            Puanlar odak süreleri ve tamamlanan görevlerden hesaplanır. (Detaylar yakında)
-          </Text>
-        </View>
-      </View>
-    </Screen>
+        )}
+        ListEmptyComponent={<View style={{ padding: 24, alignItems: "center" }}><Text variant="muted">Veri yok.</Text></View>}
+      />
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  gradientHeader: {
-    padding: 18,
-    borderRadius: 12,
-    backgroundColor: "#7B2CBF",
-    // faux gradient look by overlay
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    elevation: 3,
-  },
-  segmentPill: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  segmentText: { color: "#111", fontWeight: "600" },
-  segmentTextActive: { color: "#fff", fontWeight: "700" },
-
-  card: {
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    elevation: 2,
-  },
-  leaderRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-
-  infoCard: {
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#eee",
-    marginTop: 8,
-  },
+  safe: { flex: 1, backgroundColor: "#fff" },
+  header: { padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  back: { padding: 8 },
+  row: { padding: 12, borderRadius: 12, backgroundColor: "#fff", marginBottom: 10, borderWidth: 1, borderColor: "#eee", flexDirection: "row", justifyContent: "space-between" },
 });

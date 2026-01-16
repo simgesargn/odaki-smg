@@ -2,12 +2,16 @@ import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Alert, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../ui/Text";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "../../firebase/firebase";
-import { signOut, deleteUser } from "firebase/auth";
+import { signOut, deleteUser, onAuthStateChanged } from "firebase/auth";
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { collection, query, where, getDocs, writeBatch, deleteDoc, doc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+
+const KEY_THEME = "odaki_theme_dark_v1";
+const KEY_LANG = "odaki_lang_v1";
+const KEY_PUSH = "odaki_push_enabled_v1";
 
 export function SettingsScreen() {
   const nav = useNavigation<any>();
@@ -18,13 +22,25 @@ export function SettingsScreen() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUid(u?.uid || null));
+    (async () => {
+      try {
+        const t = await AsyncStorage.getItem(KEY_THEME);
+        if (t !== null) setThemeDark(t === "1");
+        const l = await AsyncStorage.getItem(KEY_LANG);
+        if (l === "en" || l === "tr") setLanguage(l);
+        const p = await AsyncStorage.getItem(KEY_PUSH);
+        setPushEnabled(p === null ? true : p === "1");
+      } catch {
+        /* ignore */
+      }
+    })();
     return () => unsub();
   }, []);
 
   const onSignOut = async () => {
     try {
       await signOut(auth);
-      nav.navigate(Routes.AuthStack as any, { screen: Routes.Login });
+      nav.reset({ index: 0, routes: [{ name: Routes.Login as any }] });
     } catch {
       Alert.alert("Hata", "Çıkış yapılamadı");
     }
@@ -53,14 +69,12 @@ export function SettingsScreen() {
               try {
                 await deleteUser(auth.currentUser);
               } catch (e: any) {
-                // deletion may require re-authentication; inform user
-                console.log("deleteUser error", e?.code || e?.message);
                 Alert.alert("Hesap silme", "Hesap silinemedi. Yeniden kimlik doğrulama gerekebilir.");
                 return;
               }
             }
             Alert.alert("Başarılı", "Hesabınız silindi.");
-            nav.navigate(Routes.AuthStack as any, { screen: Routes.Login });
+            nav.reset({ index: 0, routes: [{ name: Routes.Login as any }] });
           } catch (e: any) {
             Alert.alert("Hata", "Hesap silme işleminde hata: " + (e?.message || e?.code || "bilinmeyen"));
           }
@@ -69,14 +83,63 @@ export function SettingsScreen() {
     ]);
   };
 
+  const toggleTheme = async (v: boolean) => {
+    setThemeDark(v);
+    try {
+      await AsyncStorage.setItem(KEY_THEME, v ? "1" : "0");
+    } catch {}
+  };
+  const togglePush = async (v: boolean) => {
+    setPushEnabled(v);
+    try {
+      await AsyncStorage.setItem(KEY_PUSH, v ? "1" : "0");
+    } catch {}
+  };
+  const setLang = async (l: "tr" | "en") => {
+    setLanguage(l);
+    try {
+      await AsyncStorage.setItem(KEY_LANG, l);
+    } catch {}
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Pressable onPress={() => nav.goBack()} style={styles.back}>
+      <View style={styles.header}>
+        <Pressable onPress={() => nav.navigate(Routes.RootTabs as any)} style={styles.back}>
           <Text>Geri</Text>
         </Pressable>
-        <Text style={styles.title}>Ayarlar</Text>
-        <Text style={styles.subtitle}>Uygulama ayarları ve tercihleri burada yer alacak. Yakında.</Text>
+        <Text variant="h2">Ayarlar</Text>
+        <View style={{ width: 56 }} />
+      </View>
+
+      <View style={styles.container}>
+        <View style={styles.row}>
+          <Text>Tema (Koyu)</Text>
+          <Switch value={themeDark} onValueChange={toggleTheme} />
+        </View>
+
+        <View style={styles.row}>
+          <Text>Push Bildirimleri</Text>
+          <Switch value={pushEnabled} onValueChange={togglePush} />
+        </View>
+
+        <View style={{ marginTop: 12 }}>
+          <Text style={{ marginBottom: 8 }}>Dil</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable onPress={() => setLang("tr")} style={[styles.langBtn, language === "tr" && styles.langActive]}><Text>Türkçe</Text></Pressable>
+            <Pressable onPress={() => setLang("en")} style={[styles.langBtn, language === "en" && styles.langActive]}><Text>English</Text></Pressable>
+          </View>
+        </View>
+
+        <View style={{ height: 20 }} />
+
+        <Pressable style={styles.primary} onPress={onSignOut}>
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Çıkış Yap</Text>
+        </Pressable>
+
+        <Pressable style={[styles.danger, { marginTop: 12 }]} onPress={onDeleteAccount}>
+          <Text style={{ color: "#fff" }}>Hesabı Sil</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -84,8 +147,12 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
+  back: { padding: 8 },
   container: { padding: 16 },
-  back: { marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: "700" },
-  subtitle: { marginTop: 8, color: "#6b7280" },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f3f3f3" },
+  langBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#F3F4F6" },
+  langActive: { backgroundColor: "#EDE9FE" },
+  primary: { marginTop: 14, backgroundColor: "#6C5CE7", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  danger: { marginTop: 8, backgroundColor: "#ef4444", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
 });

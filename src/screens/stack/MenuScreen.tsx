@@ -6,7 +6,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 
 export const MenuScreen: React.FC = () => {
-  // Tek bir hook çağrısı — (kural: hook fonksiyon içinde tekrar çağrılmasın)
+  // Tek bir hook çağrısı
   const navigation = useNavigation<any>();
 
   const handleNavigate = (route: string, isTab?: boolean) => {
@@ -18,10 +18,6 @@ export const MenuScreen: React.FC = () => {
         // Stack ekranına doğrudan git
         navigation.navigate(route as any);
       }
-      // Menü modalini küçük bir gecikmeyle kapat (navigate kuyruğa alınsın)
-      setTimeout(() => {
-        if (navigation.canGoBack()) navigation.goBack();
-      }, 60);
     } catch {
       // ignore navigation errors to avoid crash
     }
@@ -49,7 +45,7 @@ export const MenuScreen: React.FC = () => {
           <View style={styles.itemRow}><Text>Bahçe</Text><Text>›</Text></View>
         </Pressable>
 
-        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Friends, true)}>
+        <Pressable style={styles.item} onPress={() => handleNavigate(Routes.Friends, false)}>
           <View style={styles.itemRow}><Text>Arkadaşlar</Text><Text>›</Text></View>
         </Pressable>
 
