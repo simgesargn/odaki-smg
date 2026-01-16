@@ -1,30 +1,20 @@
 export const Routes = {
   Splash: "Splash",
-  Welcome: "Welcome",
   Onboarding: "Onboarding",
-  AuthStack: "Auth",
+  AuthStack: "AuthStack",
   Login: "Login",
   Register: "Register",
-  MainTabs: "MainTabs",
+
+  RootTabs: "RootTabs",
   Home: "Home",
   Tasks: "Tasks",
   Focus: "Focus",
   Odi: "Odi",
   Stats: "Stats",
   Profile: "Profile",
+
   Notifications: "Notifications",
-  NotificationSettings: "NotificationSettings",
   Settings: "Settings",
-  Garden: "Garden",
-  Friends: "Friends",
-  AddFriend: "AddFriend",
-  FriendsActivity: "FriendsActivity",
-  FriendsLeaderboard: "FriendsLeaderboard",
-  FriendsRequests: "FriendsRequests",
-  FocusSettings: "FocusSettings",
-  FocusTimer: "FocusTimer",
-  Achievements: "Achievements",
-  Premium: "Premium",
-  EditTask: "EditTask",
-  Privacy: "Privacy",
 } as const;
+
+export type RouteName = (typeof Routes)[keyof typeof Routes];

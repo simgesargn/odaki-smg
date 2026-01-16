@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, StyleSheet, Pressable, Dimensions, ScrollView } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
-import theme, { colors } from "../../ui/theme";
+import { theme, colors } from "../../ui/theme";
 import { auth, db } from "../../firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";

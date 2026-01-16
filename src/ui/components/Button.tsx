@@ -1,6 +1,8 @@
 import React from "react";
 import { Pressable, Text as RNText, StyleSheet, ActivityIndicator } from "react-native";
-import { colors, theme } from "../theme";
+import { theme } from "../theme";
+
+const colors = theme.colors;
 
 type Props = {
   title: string;
@@ -11,14 +13,14 @@ type Props = {
   full?: boolean;
 };
 
-export const Button: React.FC<Props> = ({ title, variant = "primary", onPress, pill = true, loading, full }) => {
+export const UIButton: React.FC<Props> = ({ title, variant = "primary", onPress, pill = true, loading, full }) => {
   const bg = variant === "primary" ? colors.primary : variant === "secondary" ? "transparent" : "transparent";
   const fg = variant === "primary" ? "#fff" : colors.primary;
   const bordered = variant === "secondary";
   return (
     <Pressable onPress={onPress} style={[
       styles.btn,
-      { backgroundColor: bg, borderColor: bordered ? colors.primary : "transparent", borderWidth: bordered ? 1 : 0, borderRadius: pill ? 999 : theme.radius.md },
+      { backgroundColor: bg, borderColor: bordered ? colors.primary : "transparent", borderWidth: bordered ? 1 : 0, borderRadius: pill ? 999 : theme.radii.md },
       full ? styles.full : undefined
     ]}>
       {loading ? <ActivityIndicator color={fg} /> : <RNText style={{ color: fg, fontWeight: "700" }}>{title}</RNText>}
@@ -26,14 +28,8 @@ export const Button: React.FC<Props> = ({ title, variant = "primary", onPress, p
   );
 };
 
-export default Button;
-
 const styles = StyleSheet.create({
-  btn: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  btn: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, alignItems: "center", justifyContent: "center" },
   full: { alignSelf: "stretch" },
 });
+export default UIButton;

@@ -4,7 +4,7 @@ import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
-import theme, { colors } from "../../ui/theme";
+import { theme, colors } from "../../ui/theme";
 import { priorityLabel, priorityColors } from "../../ui/priority";
 import { loadFocusStats } from "../../features/focus/focusStore";
 import { auth, db } from "../../firebase/firebase";

@@ -1,21 +1,19 @@
 import React, { createContext, useContext } from "react";
-import { StatusBar } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { colors } from "./tokens";
+import { theme as defaultTheme, Theme } from "../ui/theme";
 
-type Theme = {
-  colors: typeof colors;
+type ContextValue = { theme: Theme };
+
+const ThemeContext = createContext<ContextValue | null>({ theme: defaultTheme });
+
+export const ThemeProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+  return <ThemeContext.Provider value={{ theme: defaultTheme }}>{children}</ThemeContext.Provider>;
 };
 
-const ThemeContext = createContext<Theme>({ colors });
-
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <ThemeContext.Provider value={{ colors }}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      {children}
-    </ThemeContext.Provider>
-  );
+export const useTheme = (): Theme => {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    // uygulama doğru sarılmadıysa daha açıklayıcı hata ver
+    throw new Error("useTheme must be used within ThemeProvider. Wrap your app with <ThemeProvider>.");
+  }
+  return ctx.theme;
 };
-
-export const useTheme = () => useContext(ThemeContext);

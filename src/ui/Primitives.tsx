@@ -1,10 +1,21 @@
 import React from "react";
-import { SafeAreaView, View, Text as RNText, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text as RNText, Pressable, StyleSheet } from "react-native";
 import { theme } from "./theme";
+const colors = theme.colors;
+
+export const useThemeSafe = () => theme;
+
+export const Box = (props: any) => <View {...props} />;
+export const P = (props: any) => <RNText {...props} />;
 
 type ScreenProps = { children: React.ReactNode; style?: any };
 export function Screen({ children, style }: ScreenProps) {
-  return <SafeAreaView style={[{ flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: theme.spacing.lg }, style]}>{children}</SafeAreaView>;
+  return (
+    <SafeAreaView style={[{ flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: theme.spacing.lg }, style]}>
+      {children}
+    </SafeAreaView>
+  );
 }
 
 type CardProps = { children: React.ReactNode; style?: any };

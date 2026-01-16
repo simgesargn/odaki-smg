@@ -5,6 +5,9 @@ import { Text } from "../ui/Text";
 import { theme } from "../ui/theme";
 import { preferencesStorage } from "../services/preferencesStorage";
 
+const colors = theme.colors;
+const spacing = theme.spacing;
+
 export const NotificationsScreen: React.FC = () => {
   const [prefs, setPrefs] = useState({ tasks: true, focus: true, odi: false });
 
@@ -48,17 +51,13 @@ export const NotificationsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: { padding: theme.spacing.lg },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: theme.radius?.md ?? 12,
     paddingVertical: 8,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    ...theme.shadow.card,
   },
   row: {
     flexDirection: "row",
@@ -69,5 +68,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#f3f4f6",
   },
-  label: { fontSize: 16, color: theme.colors.text },
+  label: { fontSize: 16, color: colors.text },
 });

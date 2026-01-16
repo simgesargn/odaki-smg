@@ -5,8 +5,6 @@ import { Text } from "../../ui/Text";
 import { Button } from "../../ui/Button";
 import { setBool } from "../../storage/local";
 import { STORAGE_KEYS } from "../../storage/keys";
-import { useNavigation } from "@react-navigation/native";
-import { Routes } from "../../navigation/routes";
 
 const SLIDES = [
   { title: "Odaklan, Planla, Büyüt." },
@@ -19,9 +17,8 @@ const SLIDES = [
 const { width } = Dimensions.get("window");
 
 export const OnboardingScreen: React.FC = () => {
-  const [index, setIndex] = useState(0);
-  const nav = useNavigation<any>();
   const ref = useRef<FlatList<any>>(null);
+  const [index, setIndex] = useState(0);
 
   const onNext = async () => {
     if (index < SLIDES.length - 1) {
@@ -29,8 +26,11 @@ export const OnboardingScreen: React.FC = () => {
       setIndex(next);
       ref.current?.scrollToOffset({ offset: next * width, animated: true });
     } else {
-      await setBool(STORAGE_KEYS.ONBOARDING_DONE, true);
-      nav.navigate(Routes.AuthStack as any, { screen: Routes.Login });
+      try {
+        await setBool(STORAGE_KEYS.ONBOARDING_DONE, true);
+      } catch {
+        // ignore
+      }
     }
   };
 

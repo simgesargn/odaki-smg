@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { theme } from "./theme";
+const colors = theme.colors;
 
 type Props = { icon?: string; value: string | number; label?: string };
 

@@ -4,6 +4,10 @@ import { Screen } from "../ui/Screen";
 import { Text } from "../ui/Text";
 import { theme } from "../ui/theme";
 
+const colors = theme.colors;
+const radius = theme.radius ?? theme.radii;
+const spacing = theme.spacing;
+
 export const PrivacyScreen: React.FC = () => {
   return (
     <Screen>
@@ -26,7 +30,7 @@ export const PrivacyScreen: React.FC = () => {
           </View>
 
           <View style={styles.rowColumn}>
-            <Text style={[styles.label, { color: theme.colors.danger ?? "#ef4444" }]}>Hesabı sil</Text>
+            <Text style={[styles.label, { color: colors.danger ?? "#ef4444" }]}>Hesabı sil</Text>
             <Text variant="muted" style={{ marginTop: 8 }}>
               Hesabı silme özelliği yakında eklenecektir. Şu an için pasif.
             </Text>
@@ -54,7 +58,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   rowColumn: { marginBottom: 12 },
-  label: { fontSize: 16, color: theme.colors.text },
+  label: { fontSize: 16, color: colors.text },
   disabledBtn: {
     marginTop: 12,
     backgroundColor: "#9ca3af",
@@ -63,3 +67,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+export default PrivacyScreen;
