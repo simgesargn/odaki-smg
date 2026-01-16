@@ -173,8 +173,12 @@ export const RootNavigator: React.FC = () => {
         component={FocusSettingsScreen}
         options={{ headerShown: true, title: "Odak Ayarları" }}
       />
-      <RootStack.Screen name={Routes.Achievements} component={AchievementsScreen} />
-      <RootStack.Screen name={Routes.Premium} component={PremiumScreen} />
+      <RootStack.Screen
+        name={Routes.Achievements}
+        component={AchievementsScreen}
+        options={{ headerShown: true, title: "Başarılar", headerBackTitleVisible: false }}
+      />
+      <RootStack.Screen name={Routes.Premium} component={PremiumScreen} options={{ headerShown: true, title: "Premium", headerBackTitleVisible: false }} />
       <RootStack.Screen name={Routes.EditTask} component={EditTaskScreen} options={{ headerShown: true, title: "Görevi Düzenle" }} />
     </RootStack.Navigator>
   );
