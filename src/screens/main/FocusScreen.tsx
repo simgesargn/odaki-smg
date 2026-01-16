@@ -138,8 +138,16 @@ export const FocusScreen: React.FC = () => {
       </Card>
 
       {/* Premium flowers (dummy) */}
-      <Text style={{ fontWeight: "700", marginBottom: 8 }}>Premium Çiçekler</Text>
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <Text style={{ fontWeight: "700" }}>Premium Çiçekler</Text>
+        <Pressable
+          onPress={() => nav.navigate(Routes.Premium as any)}
+          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: "#E5D7FF", backgroundColor: "rgba(110,90,255,0.08)" }}
+        >
+          <Text style={{ fontWeight: "700", color: "#6E5AFF" }}>Premium'a Geç</Text>
+        </Pressable>
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
         {[
           { id: "p1", icon: "🪷", label: "Lotus" },
           { id: "p2", icon: "🌻", label: "Ayçiçeği" },
@@ -180,6 +188,11 @@ export const FocusScreen: React.FC = () => {
         <Pressable onPress={onTestFinish} style={{ marginTop: 10, padding: 8 }}>
           <Text variant="muted">Bitir</Text>
         </Pressable>
+        {/* Premium feature hint: setting-skip */}
+        <View style={{ height: 8 }} />
+        <Pressable onPress={() => nav.navigate(Routes.Premium as any)} style={{ padding: 6 }}>
+          <Text variant="muted">Ayar atlama hakkı: Premium</Text>
+        </Pressable>
       </Card>
 
       {/* Minutes */}
@@ -213,9 +226,9 @@ export const FocusScreen: React.FC = () => {
           <Text variant="muted">Henüz çiçeğin yok. Odak oturumunu tamamlayınca burada görünecek.</Text>
         ) : (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {state.flowers.slice(0, 12).map((f: any, index: number) => (
+            {state.flowers.slice(0, 12).map((f: any, idx: number) => (
               <View
-                key={`${f?.id ?? "flower"}-${index}`}
+                key={`${f?.id ?? f?.type ?? f?.name ?? "flower"}-${idx}`}
                 style={{
                   width: 42,
                   height: 42,

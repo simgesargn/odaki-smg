@@ -3,9 +3,12 @@ import { View, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
 import { loadFocusSettings, saveFocusSettings, FocusSettingsLocal, DEFAULT_FOCUS_SETTINGS } from "../../features/focus/focusStore";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 
 export const FocusSettingsScreen: React.FC = () => {
   const [settings, setSettings] = useState<FocusSettingsLocal | null>(null);
+  const navigation = useNavigation<any>();
 
   useEffect(() => {
     let mounted = true;
@@ -51,7 +54,7 @@ export const FocusSettingsScreen: React.FC = () => {
   };
 
   const onPremium = () => {
-    Alert.alert("Premium", "Premium'a geçme akışı demo amaçlıdır.");
+    navigation.navigate(Routes.Premium as any);
   };
 
   return (
@@ -76,6 +79,9 @@ export const FocusSettingsScreen: React.FC = () => {
           </Text>
           <Pressable style={[styles.cta]} onPress={onPremium}>
             <Text style={{ color: "#fff", fontWeight: "700" }}>Premium'a Geç</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate(Routes.Premium as any)} style={{ marginTop: 8 }}>
+            <Text variant="muted">Daha fazlası için Premium</Text>
           </Pressable>
         </View>
 
