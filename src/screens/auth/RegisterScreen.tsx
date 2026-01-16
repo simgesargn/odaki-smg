@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { View, TextInput, StyleSheet, Pressable, Text, KeyboardAvoidingView, Platform } from "react-native";
+import { View, TextInput, StyleSheet, Pressable, Text, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import AuthHero from "../../ui/components/AuthHero";
 import { theme } from "../../ui/theme";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "../../firebase/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -20,7 +22,7 @@ function mapAuthError(code: string | undefined) {
 }
 
 export const RegisterScreen: React.FC = () => {
-  // navigation removed: RootNavigator decides routing based on auth state
+  const navigation = useNavigation<any>();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -53,11 +55,14 @@ export const RegisterScreen: React.FC = () => {
         updateProfile(auth.currentUser, { displayName }).catch(() => {});
       }
 
-      // NOTE: Do NOT navigate here. RootNavigator listens to auth state.
+      // başarılı kayıt -> RootTabs'e reset
+      navigation.reset({ index: 0, routes: [{ name: Routes.RootTabs as any }] });
       return;
     } catch (e: any) {
-      const code = e?.code;
-      setErr(mapAuthError(code));
+      console.log("REGISTER_ERROR", e);
+      const readable = e?.code ? mapAuthError(e?.code) : "Bir hata oluştu.";
+      Alert.alert("Kayıt başarısız", readable);
+      setErr(readable);
     } finally {
       setLoading(false);
     }
@@ -127,7 +132,7 @@ export const RegisterScreen: React.FC = () => {
             <Text style={styles.btnText}>{loading ? "Kayıt oluyor..." : "Kayıt Ol"}</Text>
           </Pressable>
 
-          <Pressable onPress={() => { /* no-op: navigation handled by RootNavigator */ }} style={styles.bottomRow}>
+          <Pressable onPress={() => navigation.navigate(Routes.Login as any)} style={styles.bottomRow}>
             <Text style={styles.bottomText}>
               Zaten hesabın var mı? <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Giriş Yap</Text>
             </Text>

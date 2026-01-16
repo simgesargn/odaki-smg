@@ -12,6 +12,20 @@ import {
   Alert,
 } from "react-native";
 import { Text } from "../../ui/Text";
+import { askOdi } from "../../services/ai/odiService";
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+} from "firebase/firestore";
+import { auth, db } from "../../firebase/firebase";
 
 type Msg = {
   id: string;
@@ -23,10 +37,11 @@ type Msg = {
 export const OdiChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [loadingSend, setLoadingSend] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
   const listRef = useRef<FlatList<any> | null>(null);
 
-  // ilk sistem mesajı
   useEffect(() => {
     const sys: Msg = {
       id: `sys_${Date.now().toString(36)}`,
@@ -38,7 +53,6 @@ export const OdiChatScreen: React.FC = () => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
   }, []);
 
-  // scroll to end on messages change
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
   }, [messages]);
@@ -51,29 +65,108 @@ export const OdiChatScreen: React.FC = () => {
 
   const keyExtractor = (i: any) => i.id;
 
-  const sendMessage = async (presetText?: string) => {
-    const raw = typeof presetText === "string" ? presetText : input;
-    const text = String(raw || "").trim();
-    if (!text) return;
-    setLoadingSend(true);
+  const ensureChat = async (): Promise<string> => {
+    if (chatId) return chatId;
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error("Not signed in");
+
+    const ref = await addDoc(collection(db, "aiChats"), {
+      userId: uid,
+      title: "Odi Sohbeti",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    setChatId(ref.id);
+    return ref.id;
+  };
+
+  const persistMsg = async (cid: string, role: "user" | "assistant", text: string) => {
+    const uid = auth.currentUser?.uid;
+    await addDoc(collection(db, "aiChats", cid, "messages"), {
+      userId: uid,
+      role,
+      text,
+      createdAt: serverTimestamp(),
+    });
+    await updateDoc(doc(db, "aiChats", cid), { updatedAt: serverTimestamp() });
+  };
+
+  const onSend = async (presetText?: string) => {
+    const rawText = typeof presetText === "string" ? presetText : input;
+    const text = String(rawText || "").trim();
+    if (!text || sending) return;
+
+    setSending(true);
+    setInput("");
 
     const userMsg: Msg = { id: `u_${Date.now().toString(36)}`, role: "user", text, createdAt: Date.now() };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    setMessages((p) => [...p, userMsg]);
 
-    // sahte Odi cevabı (mock)
-    setTimeout(() => {
-      const replyText =
-        presetText ??
-        (text.length > 80
-          ? "Güzel, bunu adım adım yapmanı öneririm. İstersen bir plan hazırlayayım."
-          : `Tamam: "${text}" — üzerine kısa bir cevap hazırlıyorum.`);
-      const odiMsg: Msg = { id: `odi_${Date.now().toString(36)}`, role: "assistant", text: replyText, createdAt: Date.now() };
-      setMessages((prev) => [...prev, odiMsg]);
-      setLoadingSend(false);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
-    }, 400);
+    try {
+      const cid = await ensureChat();
+      await persistMsg(cid, "user", text);
+
+      const history = [...messages, userMsg].map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", text: m.text }));
+      const reply = await askOdi({ userMessage: text, history });
+
+      const asstMsg: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: reply, createdAt: Date.now() };
+      setMessages((p) => [...p, asstMsg]);
+      await persistMsg(cid, "assistant", reply);
+    } catch (e: any) {
+      const fail: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: "Şu an cevap veremiyorum.", createdAt: Date.now() };
+      setMessages((p) => [...p, fail]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Yeni: geçmiş yükleme fonksiyonu
+  const loadLatestChatFromHistory = async () => {
+    setLoading(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        Alert.alert("Hata", "Geçmişi görüntülemek için giriş yapmalısınız.");
+        return;
+      }
+
+      const q = query(collection(db, "aiChats"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        Alert.alert("Geçmiş", "Henüz geçmiş sohbet bulunamadı.");
+        return;
+      }
+
+      const chatDoc = snap.docs[0];
+      const cid = chatDoc.id;
+      setChatId(cid);
+
+      const msgsSnap = await getDocs(query(collection(db, "aiChats", cid, "messages"), orderBy("createdAt", "asc")));
+      const loaded: Msg[] = msgsSnap.docs.map((d) => {
+        const data: any = d.data();
+        const ts = data.createdAt;
+        const createdAt = ts && typeof ts.toMillis === "function" ? ts.toMillis() : Date.now();
+        return {
+          id: d.id,
+          role: data.role || "assistant",
+          text: data.text || "",
+          createdAt,
+        } as Msg;
+      });
+
+      if (loaded.length === 0) {
+        Alert.alert("Geçmiş", "Bu sohbetin mesajı bulunamadı.");
+        return;
+      }
+
+      setMessages(loaded);
+    } catch (e: any) {
+      console.log("LOAD_HISTORY_ERROR", e);
+      Alert.alert("Hata", "Geçmiş yüklenemedi.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderItem = ({ item }: { item: Msg }) => {
@@ -81,9 +174,7 @@ export const OdiChatScreen: React.FC = () => {
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-          {!isUser ? <Text variant="caption" style={styles.assistantLabel}>Odi (Geçici)</Text> : null}
           <Text style={isUser ? styles.msgTextUser : styles.msgTextAssistant}>{item.text}</Text>
-          {/* ts */}
           <Text variant="caption" style={styles.ts}>
             {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </Text>
@@ -97,27 +188,15 @@ export const OdiChatScreen: React.FC = () => {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text variant="h2">Odi Koçu</Text>
-          <Pressable
-            onPress={() => {
-              Alert.alert("Geçmiş", "Geçmişe bak (henüz yok)");
-            }}
-            style={styles.historyBtn}
-          >
-            <Text>Geçmiş</Text>
+          <Pressable onPress={loadLatestChatFromHistory} style={styles.historyBtn}>
+            <Text>{loading ? "Yükleniyor..." : "Geçmiş"}</Text>
           </Pressable>
         </View>
 
         <View style={styles.startCardContainer}>
           <View style={styles.suggestionRow}>
             {suggestions.map((s) => (
-              <Pressable
-                key={s.label}
-                style={styles.suggestionChip}
-                onPress={() => {
-                  // chip'e basınca kullanıcı mesajı olarak ekle ve otomatik gönder
-                  sendMessage(s.text);
-                }}
-              >
+              <Pressable key={s.label} style={styles.suggestionChip} onPress={() => onSend(s.text)}>
                 <Text>{s.label}</Text>
               </Pressable>
             ))}
@@ -144,12 +223,13 @@ export const OdiChatScreen: React.FC = () => {
             multiline
             blurOnSubmit={false}
           />
+          {loading ? <Text style={{ marginTop: 6, color: "#6b7280", fontSize: 13 }}>Odi yazıyor...</Text> : null}
           <Pressable
-            onPress={() => sendMessage()}
-            style={[styles.sendBtn, (loadingSend || !input.trim()) && styles.sendBtnDisabled]}
-            disabled={loadingSend || !input.trim()}
+            onPress={() => onSend()}
+            style={[styles.sendBtn, (sending || !input.trim() || loading) && styles.sendBtnDisabled]}
+            disabled={sending || !input.trim() || loading}
           >
-            {loadingSend ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff" }}>Gönder</Text>}
+            {sending || loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff" }}>Gönder</Text>}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -204,7 +284,6 @@ const styles = StyleSheet.create({
   bubbleAssistant: {
     backgroundColor: "#f3f4f6",
   },
-  assistantLabel: { fontSize: 12, color: "#6b7280", marginBottom: 6 },
   msgTextUser: { color: "#fff" },
   msgTextAssistant: { color: "#111" },
   ts: { fontSize: 10, color: "#666", marginTop: 6 },

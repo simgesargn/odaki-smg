@@ -1,11 +1,15 @@
 export const Routes = {
+  // app flow
   Splash: "Splash",
   Onboarding: "Onboarding",
-  AuthStack: "AuthStack",
+  Auth: "Auth",
+  RootTabs: "RootTabs",
+
+  // auth
   Login: "Login",
   Register: "Register",
 
-  RootTabs: "RootTabs",
+  // tabs
   Home: "Home",
   Tasks: "Tasks",
   Focus: "Focus",
@@ -13,6 +17,7 @@ export const Routes = {
   Stats: "Stats",
   Profile: "Profile",
 
+  // stack extras
   Notifications: "Notifications",
   Settings: "Settings",
 } as const;

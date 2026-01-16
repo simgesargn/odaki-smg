@@ -5,6 +5,8 @@ import { Text } from "../../ui/Text";
 import { Button } from "../../ui/Button";
 import { setBool } from "../../storage/local";
 import { STORAGE_KEYS } from "../../storage/keys";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 
 const SLIDES = [
   { title: "Odaklan, Planla, Büyüt." },
@@ -19,6 +21,7 @@ const { width } = Dimensions.get("window");
 export const OnboardingScreen: React.FC = () => {
   const ref = useRef<FlatList<any>>(null);
   const [index, setIndex] = useState(0);
+  const navigation = useNavigation<any>();
 
   const onNext = async () => {
     if (index < SLIDES.length - 1) {
@@ -28,6 +31,8 @@ export const OnboardingScreen: React.FC = () => {
     } else {
       try {
         await setBool(STORAGE_KEYS.ONBOARDING_DONE, true);
+        // onboarding tamamlandıktan sonra Auth akışına sıfırlı yönlendirme
+        navigation.reset({ index: 0, routes: [{ name: Routes.Auth as any }] });
       } catch {
         // ignore
       }

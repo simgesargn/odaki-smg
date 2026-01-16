@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Text } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Text, Alert } from "react-native";
 import { theme } from "../../ui/theme";
+import { useNavigation } from "@react-navigation/native";
+import { Routes } from "../../navigation/routes";
 import { signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "../../firebase/firebase";
 
@@ -18,7 +20,7 @@ function mapAuthError(code: string | undefined) {
 }
 
 export const LoginScreen: React.FC = () => {
-  // navigation removed: RootNavigator decides routing based on auth state
+  const navigation = useNavigation<any>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -33,14 +35,20 @@ export const LoginScreen: React.FC = () => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+
       if (auth.currentUser && auth.currentUser.email && !auth.currentUser.displayName) {
         const name = auth.currentUser.email.split("@")[0];
         updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
       }
-      // NOTE: Do NOT navigate here. RootNavigator listens to auth state.
+
+      // başarılı giriş -> reset to RootTabs
+      navigation.reset({ index: 0, routes: [{ name: Routes.RootTabs as any }] });
       return;
     } catch (e: any) {
-      setErr(e?.message || mapAuthError(e?.code));
+      console.log("LOGIN_ERROR", e);
+      const readable = e?.code ? mapAuthError(e?.code) : "Bir hata oluştu.";
+      Alert.alert("Giriş başarısız", readable);
+      setErr(readable);
     } finally {
       setLoading(false);
     }
@@ -86,7 +94,7 @@ export const LoginScreen: React.FC = () => {
           <Text style={styles.btnText}>{loading ? "Yükleniyor..." : "Giriş Yap"}</Text>
         </Pressable>
 
-        <Pressable onPress={() => { /* no-op: navigation handled by RootNavigator */ }} style={styles.link}>
+        <Pressable onPress={() => navigation.navigate(Routes.Register as any)} style={styles.link}>
           <Text style={{ color: theme.colors.primary }}>Hesabın yok mu? Kayıt Ol</Text>
         </Pressable>
       </View>
