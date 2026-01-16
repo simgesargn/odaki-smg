@@ -1,27 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { onAuthStateChanged, User } from "firebase/auth";
-
+import { useUser } from "../context/UserContext";
+import { getBool } from "../storage/local";
+import { STORAGE_KEYS } from "../storage/keys";
 import { Routes } from "./routes";
-import { auth } from "../firebase/firebase";
 
 import { SplashScreen } from "../screens/splash/SplashScreen";
 import { OnboardingScreen } from "../screens/onboarding/OnboardingScreen";
-
-// ZORUNLU: bu iki import sadece bu yoldan gelsin
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { RegisterScreen } from "../screens/auth/RegisterScreen";
-
 import { HomeScreen } from "../screens/main/HomeScreen";
 import { TasksScreen } from "../screens/main/TasksScreen";
 import { FocusScreen } from "../screens/main/FocusScreen";
 import { OdiChatScreen } from "../screens/main/OdiChatScreen";
 import { StatsScreen } from "../screens/main/StatsScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
-
-import { getBool } from "../storage/local";
-import { STORAGE_KEYS } from "../storage/keys";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -40,17 +34,12 @@ function MainTabs() {
 }
 
 export const RootNavigator: React.FC = () => {
+  const { user, loading: userLoading } = useUser();
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [booting, setBooting] = useState(true);
-  const [signedIn, setSignedIn] = useState(false);
-  const [onboarded, setOnboarded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    const unsub = onAuthStateChanged(auth, (u: User | null) => {
-      if (!mounted) return;
-      setSignedIn(!!u);
-    });
-
     (async () => {
       try {
         const done = await getBool(STORAGE_KEYS.ONBOARDING_DONE, false);
@@ -64,32 +53,25 @@ export const RootNavigator: React.FC = () => {
         setBooting(false);
       }
     })();
-
     return () => {
       mounted = false;
-      try {
-        unsub();
-      } catch {
-        // ignore
-      }
     };
   }, []);
 
-  const initialRouteName = useMemo(() => {
-    if (booting) return Routes.Splash;
+  const initialRoute = useMemo(() => {
+    if (userLoading || booting) return Routes.Splash;
+    if (!user) return Routes.Login;
     if (!onboarded) return Routes.Onboarding;
-    if (!signedIn) return Routes.Login;
     return Routes.RootTabs;
-  }, [booting, onboarded, signedIn]);
+  }, [user, userLoading, onboarded, booting]);
 
   return (
-    <Stack.Navigator initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
       <Stack.Screen name={Routes.Splash} component={SplashScreen} />
       <Stack.Screen name={Routes.Onboarding} component={OnboardingScreen} />
       <Stack.Screen name={Routes.Login} component={LoginScreen} />
       <Stack.Screen name={Routes.Register} component={RegisterScreen} />
       <Stack.Screen name={Routes.RootTabs} component={MainTabs} />
-      {/* Diğer stack ekranlar (Settings, Notifications vb.) varsa buraya ekleyin */}
     </Stack.Navigator>
   );
 };

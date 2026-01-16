@@ -41,14 +41,19 @@ export const RegisterScreen: React.FC = () => {
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const uid = userCred.user.uid;
       const avatarEmoji = "🙂";
-      await setDoc(doc(db, "users", uid), {
-        uid,
-        name: name.trim(),
-        username: username.trim(),
-        email: email.trim(),
-        avatarEmoji,
-        createdAt: serverTimestamp(),
-      });
+      await setDoc(
+        doc(db, "users", uid),
+        {
+          uid,
+          email: email.trim(),
+          name: name.trim(),
+          username: username.trim(),
+          avatarEmoji,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       if (auth.currentUser && auth.currentUser.email && !auth.currentUser.displayName) {
         const displayName = auth.currentUser.email.split("@")[0];

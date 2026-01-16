@@ -10,163 +10,112 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Modal,
+  Text as RNText,
 } from "react-native";
 import { Text } from "../../ui/Text";
 import { askOdi } from "../../services/ai/odiService";
-import {
-  addDoc,
-  collection,
-  doc,
-  serverTimestamp,
-  updateDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-} from "firebase/firestore";
-import { auth, db } from "../../firebase/firebase";
+import { loadRecent, saveMessage } from "../../services/ai/odiChatStore";
+import { useUser } from "../../context/UserContext";
 
-type Msg = {
-  id: string;
-  role: "user" | "assistant" | "system";
-  text: string;
-  createdAt: number;
-};
+type Msg = { id: string; role: "user" | "assistant" | "system"; text: string; createdAt: number };
 
 export const OdiChatScreen: React.FC = () => {
+  const { user } = useUser();
+  const uid = user?.uid ?? null;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const listRef = useRef<FlatList<any> | null>(null);
 
   useEffect(() => {
-    const sys: Msg = {
-      id: `sys_${Date.now().toString(36)}`,
-      role: "assistant",
-      text: "Merhaba Simge! Bugün nasıl yardımcı olayım?",
-      createdAt: Date.now(),
+    const init = async () => {
+      if (!uid) {
+        // show assistant greeting when not signed in or no history
+        const greet: Msg = { id: `sys_${Date.now()}`, role: "assistant", text: "Selam! 👋 Bugün neye odaklanmak istersin?", createdAt: Date.now() };
+        setMessages([greet]);
+        return;
+      }
+      setLoadingHistory(true);
+      try {
+        const recent = await loadRecent(uid, 50);
+        if (!recent || recent.length === 0) {
+          const greet: Msg = { id: `sys_${Date.now()}`, role: "assistant", text: "Selam! 👋 Bugün neye odaklanmak istersin?", createdAt: Date.now() };
+          setMessages([greet]);
+        } else {
+          setMessages(recent.map((m) => ({ id: m.id, role: m.role, text: m.text, createdAt: m.createdAt })));
+        }
+      } catch (e) {
+        console.log("loadRecent error", e);
+      } finally {
+        setLoadingHistory(false);
+      }
     };
-    setMessages([sys]);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
-  }, []);
+    init();
+  }, [uid]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
   }, [messages]);
 
   const suggestions = [
-    { label: "Gün planı yap", text: "Bugün için 3 maddelik net bir plan çıkarır mısın? (ders/ödev/odak)" },
-    { label: "Motivasyon ver", text: "Kısa bir motivasyon mesajı ver ve 1 küçük hedef öner." },
-    { label: "Görev öner", text: "Bugün yapabileceğim 5 görev öner (kısa ve uygulanabilir)." },
+    { label: "Gün planı yap", text: "Bugün için sade bir günlük plan yap: 2 odak bloğu + 2 mola + akşam mini değerlendirme. En sonda: 'Hangi tek işe odaklanıyoruz?' diye sor.", intent: "day_plan" as const },
+    { label: "Motivasyon ver", text: "Kısa motivasyon mesajı ver (2–3 cümle) ve hemen şimdi başlanacak 5 dakikalık mini adım öner.", intent: "motivation" as const },
+    { label: "Görev öner", text: "Bugün için 1–3 küçük görev öner (Pomodoro, bildirim kapatma, 1 net hedef). Kullanıcının seçmesi için soruyla bitir.", intent: "task_suggestion" as const },
   ];
 
-  const keyExtractor = (i: any) => i.id;
+  const addLocalMessage = (m: Msg) => setMessages((p) => [...p, m]);
 
-  const ensureChat = async (): Promise<string> => {
-    if (chatId) return chatId;
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error("Not signed in");
-
-    const ref = await addDoc(collection(db, "aiChats"), {
-      userId: uid,
-      title: "Odi Sohbeti",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    setChatId(ref.id);
-    return ref.id;
-  };
-
-  const persistMsg = async (cid: string, role: "user" | "assistant", text: string) => {
-    const uid = auth.currentUser?.uid;
-    await addDoc(collection(db, "aiChats", cid, "messages"), {
-      userId: uid,
-      role,
-      text,
-      createdAt: serverTimestamp(),
-    });
-    await updateDoc(doc(db, "aiChats", cid), { updatedAt: serverTimestamp() });
-  };
-
-  const onSend = async (presetText?: string) => {
-    const rawText = typeof presetText === "string" ? presetText : input;
-    const text = String(rawText || "").trim();
+  const handleSend = async (presetText?: string, intent?: "day_plan" | "motivation" | "task_suggestion" | "chat") => {
+    const raw = typeof presetText === "string" ? presetText : input;
+    const text = (raw ?? "").trim();
     if (!text || sending) return;
 
     setSending(true);
     setInput("");
 
     const userMsg: Msg = { id: `u_${Date.now().toString(36)}`, role: "user", text, createdAt: Date.now() };
-    setMessages((p) => [...p, userMsg]);
+    addLocalMessage(userMsg);
 
     try {
-      const cid = await ensureChat();
-      await persistMsg(cid, "user", text);
+      if (uid) {
+        // persist user message
+        await saveMessage(uid, { role: "user", text, createdAt: Date.now() });
+      }
 
-      const history = [...messages, userMsg].map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", text: m.text }));
-      const reply = await askOdi({ userMessage: text, history });
+      const historyForApi = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-12)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
 
-      const asstMsg: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: reply, createdAt: Date.now() };
-      setMessages((p) => [...p, asstMsg]);
-      await persistMsg(cid, "assistant", reply);
-    } catch (e: any) {
-      const fail: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: "Şu an cevap veremiyorum.", createdAt: Date.now() };
-      setMessages((p) => [...p, fail]);
+      const reply = await askOdi({ userText: text, intent: intent ?? "chat", history: historyForApi });
+
+      const assistantMsg: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: reply, createdAt: Date.now() };
+      addLocalMessage(assistantMsg);
+
+      if (uid) {
+        await saveMessage(uid, { role: "assistant", text: reply, createdAt: Date.now() });
+      }
+    } catch (e) {
+      console.log("onSend error", e);
+      const fail: Msg = { id: `a_${Date.now().toString(36)}`, role: "assistant", text: "Şu an bağlantıda sorun var. İstersen daha kısa yazar mısın ya da tekrar deneyelim 🙂", createdAt: Date.now() };
+      addLocalMessage(fail);
+      if (uid) {
+        await saveMessage(uid, { role: "assistant", text: fail.text, createdAt: Date.now() });
+      }
     } finally {
       setSending(false);
     }
   };
 
-  // Yeni: geçmiş yükleme fonksiyonu
-  const loadLatestChatFromHistory = async () => {
-    setLoading(true);
-    try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        Alert.alert("Hata", "Geçmişi görüntülemek için giriş yapmalısınız.");
-        return;
-      }
-
-      const q = query(collection(db, "aiChats"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(1));
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        Alert.alert("Geçmiş", "Henüz geçmiş sohbet bulunamadı.");
-        return;
-      }
-
-      const chatDoc = snap.docs[0];
-      const cid = chatDoc.id;
-      setChatId(cid);
-
-      const msgsSnap = await getDocs(query(collection(db, "aiChats", cid, "messages"), orderBy("createdAt", "asc")));
-      const loaded: Msg[] = msgsSnap.docs.map((d) => {
-        const data: any = d.data();
-        const ts = data.createdAt;
-        const createdAt = ts && typeof ts.toMillis === "function" ? ts.toMillis() : Date.now();
-        return {
-          id: d.id,
-          role: data.role || "assistant",
-          text: data.text || "",
-          createdAt,
-        } as Msg;
-      });
-
-      if (loaded.length === 0) {
-        Alert.alert("Geçmiş", "Bu sohbetin mesajı bulunamadı.");
-        return;
-      }
-
-      setMessages(loaded);
-    } catch (e: any) {
-      console.log("LOAD_HISTORY_ERROR", e);
-      Alert.alert("Hata", "Geçmiş yüklenemedi.");
-    } finally {
-      setLoading(false);
+  const openHistoryModal = async () => {
+    if (!uid) {
+      Alert.alert("Geçmiş", "Geçmişi görmek için giriş yapmalısınız.");
+      return;
     }
+    setModalVisible(true);
   };
 
   const renderItem = ({ item }: { item: Msg }) => {
@@ -188,15 +137,15 @@ export const OdiChatScreen: React.FC = () => {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text variant="h2">Odi Koçu</Text>
-          <Pressable onPress={loadLatestChatFromHistory} style={styles.historyBtn}>
-            <Text>{loading ? "Yükleniyor..." : "Geçmiş"}</Text>
+          <Pressable onPress={openHistoryModal} style={styles.historyBtn}>
+            <Text>{loadingHistory ? "Yükleniyor..." : "Geçmiş"}</Text>
           </Pressable>
         </View>
 
         <View style={styles.startCardContainer}>
           <View style={styles.suggestionRow}>
             {suggestions.map((s) => (
-              <Pressable key={s.label} style={styles.suggestionChip} onPress={() => onSend(s.text)}>
+              <Pressable key={s.label} style={styles.suggestionChip} onPress={() => handleSend(s.text, s.intent)}>
                 <Text>{s.label}</Text>
               </Pressable>
             ))}
@@ -206,7 +155,7 @@ export const OdiChatScreen: React.FC = () => {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={keyExtractor}
+          keyExtractor={(i) => i.id}
           renderItem={renderItem}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 12, paddingBottom: 16 }}
@@ -222,16 +171,45 @@ export const OdiChatScreen: React.FC = () => {
             style={styles.input}
             multiline
             blurOnSubmit={false}
+            editable={!sending}
           />
-          {loading ? <Text style={{ marginTop: 6, color: "#6b7280", fontSize: 13 }}>Odi yazıyor...</Text> : null}
+          {sending ? <Text style={{ marginTop: 6, color: "#6b7280", fontSize: 13 }}>Odi yazıyor...</Text> : null}
           <Pressable
-            onPress={() => onSend()}
-            style={[styles.sendBtn, (sending || !input.trim() || loading) && styles.sendBtnDisabled]}
-            disabled={sending || !input.trim() || loading}
+            onPress={() => handleSend(undefined, "chat")}
+            style={[styles.sendBtn, (sending || !input.trim()) && styles.sendBtnDisabled]}
+            disabled={sending || !input.trim()}
           >
-            {sending || loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff" }}>Gönder</Text>}
+            {sending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff" }}>Gönder</Text>}
           </Pressable>
         </View>
+
+        <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
+                <RNText style={{ fontSize: 18, fontWeight: "700" }}>Geçmiş Sohbet</RNText>
+              </View>
+              <FlatList
+                data={messages}
+                keyExtractor={(i) => i.id}
+                renderItem={({ item }) => (
+                  <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: "#fafafa" }}>
+                    <RNText style={{ fontWeight: item.role === "user" ? "700" : "600" }}>{item.role.toUpperCase()}</RNText>
+                    <RNText style={{ marginTop: 6 }}>{item.text}</RNText>
+                    <RNText style={{ marginTop: 6, color: "#666", fontSize: 12 }}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </RNText>
+                  </View>
+                )}
+              />
+              <View style={{ padding: 12 }}>
+                <Pressable onPress={() => setModalVisible(false)} style={{ padding: 12, backgroundColor: "#6C5CE7", borderRadius: 8, alignItems: "center" }}>
+                  <RNText style={{ color: "#fff", fontWeight: "700" }}>Kapat</RNText>
+                </Pressable>
+              </View>
+            </View>
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -266,8 +244,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     marginBottom: 6,
   },
-
-  listContent: { padding: 12, paddingBottom: 120 },
 
   msgRow: { marginVertical: 6 },
   msgRowUser: { alignItems: "flex-end" },

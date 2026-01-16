@@ -1,54 +1,72 @@
-type OdiMsg = { role: "system" | "user" | "assistant"; content: string };
+export type OdiRole = "system" | "user" | "assistant";
+type OdiMsg = { role: OdiRole; content: string };
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-function getGroqKey(): string {
-  // Expo public env
-  // .env -> EXPO_PUBLIC_GROQ_API_KEY=...
+function getKey(): string {
   const k = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-  if (!k) throw new Error("EXPO_PUBLIC_GROQ_API_KEY missing");
-  return k;
+  if (!k || typeof k !== "string") throw new Error("EXPO_PUBLIC_GROQ_API_KEY missing");
+  return k.trim();
 }
 
+export const SYSTEM_PROMPT = `You are Odi Koçu, Turkish focus & productivity coach inside a mobile app.
+Rules:
+- Kısa, mobil uyumlu. 3–6 madde. 1–2 emoji max.
+- Somut eylem öner. Uzun deneme yazma.
+- Belirsizlik varsa 1 kısa soru sor veya güvenli varsayılan plan ver.
+- Sağlık/hukuk yok. Güvenli ve nazik.
+Quick intents:
+day_plan: 2 odak bloğu + 1 admin bloğu + kapanış
+motivation: doğrula + 5 dk başlatıcı + 1 mikro hedef
+task_suggestion: 3 seçenek (kolay/orta/zor) + seçim sorusu.`;
+
 export async function askOdi(params: {
-  userMessage: string;
-  history?: { role: "user" | "assistant"; text: string }[];
+  userText: string;
+  intent?: "day_plan" | "motivation" | "task_suggestion" | "chat";
+  history?: { role: "user" | "assistant"; content: string }[];
 }): Promise<string> {
-  const system: OdiMsg = {
-    role: "system",
-    content:
-      "Sen Odi'sin: kısa, net, motive edici bir odak ve planlama koçusun. Türkçe cevap ver. Gereksiz uzatma. Maddelerle plan çıkarabilirsin.",
-  };
+  try {
+    const key = getKey();
+    const userText = (params.userText ?? "").trim();
+    if (!userText) return "Lütfen kısa bir mesaj yazın.";
 
-  const msgs: OdiMsg[] = [system];
+    const messages: OdiMsg[] = [{ role: "system", content: SYSTEM_PROMPT.trim() }];
 
-  (params.history ?? []).slice(-12).forEach((m) => {
-    msgs.push({ role: m.role, content: m.text });
-  });
+    (params.history ?? []).slice(-12).forEach((h) => {
+      messages.push({ role: h.role === "assistant" ? "assistant" : "user", content: h.content });
+    });
 
-  msgs.push({ role: "user", content: params.userMessage });
+    messages.push({ role: "user", content: userText });
 
-  const res = await fetch(GROQ_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getGroqKey()}`,
-    },
-    body: JSON.stringify({
+    const body = {
       model: "llama-3.1-8b-instant",
-      messages: msgs,
+      messages,
       temperature: 0.7,
-      max_tokens: 300,
-    }),
-  });
+      max_tokens: 250,
+    };
 
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Groq error: ${res.status} ${t}`);
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.log("askOdi groq error", res.status, txt);
+      return "Şu an cevap üretirken sorun yaşadım. 10 sn sonra tekrar dener misin? 🙏";
+    }
+
+    const data = await res.json().catch(() => null);
+    const text: string | undefined =
+      data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? undefined;
+    if (!text) return "Şu an cevap üretirken sorun yaşadım. 10 sn sonra tekrar dener misin? 🙏";
+    return String(text).trim();
+  } catch (e) {
+    console.log("askOdi error", e);
+    return "Şu an cevap üretirken sorun yaşadım. 10 sn sonra tekrar dener misin? 🙏";
   }
-
-  const data = await res.json();
-  const text: string | undefined = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Groq: empty response");
-  return text.trim();
 }

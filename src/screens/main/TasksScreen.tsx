@@ -29,6 +29,7 @@ import {
 // date picker (optional dependency)
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUser } from "../../context/UserContext";
 
 type Task = {
   id: string;
@@ -43,7 +44,8 @@ type Task = {
 
 export const TasksScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid || null);
+  const { user } = useUser();
+  const uid = user?.uid;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -96,6 +98,28 @@ export const TasksScreen: React.FC = () => {
     );
     return () => unsub();
   }, [uid]);
+
+  const loadTasks = async () => {
+    if (!uid) return;
+    // load user's tasks from root collection
+    const q = query(collection(db, "tasks"), where("userId", "==", uid));
+    const snap = await getDocs(q);
+    const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    // normalize priority and dueAt
+    const normalized = items.map((t: any) => ({
+      ...t,
+      priority: (t.priority as any) || "medium",
+      dueAt: t.dueAt ?? null,
+    }));
+    setTasks(normalized);
+  };
+
+  const isSameLocalDay = (ts?: number | null) => {
+    if (!ts) return false;
+    const d = new Date(ts);
+    const today = new Date();
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  };
 
   const onAdd = async () => {
     if (!uid) return;

@@ -7,6 +7,8 @@ import { Button } from "../../ui/Button";
 import { auth, db } from "../../firebase/firebase";
 import { doc, getDoc, updateDoc, addDoc, collection, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { createTask, updateTask } from "../../services/taskService";
+import { useUser } from "../../context/UserContext";
 
 const CATEGORIES = [
   { name: "Ders", color: "#2F80ED" },
@@ -65,7 +67,7 @@ export const EditTaskScreen: React.FC = () => {
     const dueAt = parseDue();
     try {
       if (taskId) {
-        await updateDoc(doc(db, "tasks", taskId), {
+        await updateTask(auth.currentUser?.uid, taskId, {
           title: title.trim(),
           description: description.trim(),
           categoryName: category.name,
@@ -76,8 +78,7 @@ export const EditTaskScreen: React.FC = () => {
       } else {
         const userId = auth.currentUser?.uid;
         if (!userId) return Alert.alert("Hata", "Giriş yapılmadı.");
-        await addDoc(collection(db, "tasks"), {
-          userId,
+        await createTask(userId, {
           title: title.trim(),
           description: description.trim(),
           categoryName: category.name,

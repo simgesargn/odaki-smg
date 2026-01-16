@@ -9,6 +9,7 @@ import { collection, query, where, onSnapshot, Timestamp } from "firebase/firest
 import { useNavigation } from "@react-navigation/native";
 import { Routes } from "../../navigation/routes";
 import { loadFocusStats } from "../../features/focus/focusStore";
+import { useUser } from "../../context/UserContext";
 
 type SessionDoc = {
   userId: string;

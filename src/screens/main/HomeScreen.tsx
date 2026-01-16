@@ -10,6 +10,7 @@ import { loadFocusStats } from "../../features/focus/focusStore";
 import { auth, db } from "../../firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import { useUser } from "../../context/UserContext";
 
 type TaskItem = {
   id: string;
